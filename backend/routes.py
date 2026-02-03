@@ -1851,6 +1851,80 @@ def create_service_category():
         db.session.rollback()
         return handle_error(e)
 
+@api.route('/service_categories/<int:category_id>', methods=['GET'])
+def get_service_category_detail(category_id):
+    """获取服务分类详情"""
+    category = ServiceCategory.query.get(category_id)
+    if not category:
+        return jsonify({'error': 'Service category not found'}), 404
+    
+    return jsonify({
+        'id': category.id,
+        'name': category.name,
+        'description': category.description
+    })
+
+@api.route('/service_categories/<int:category_id>', methods=['PUT'])
+@requires_resource_permission('service', 'update')
+def update_service_category(category_id):
+    """更新服务分类"""
+    category = ServiceCategory.query.get(category_id)
+    if not category:
+        return jsonify({'error': 'Service category not found'}), 404
+    
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    # 验证数据
+    required_fields = ['name']
+    is_valid, error = validate_data(data, required_fields)
+    if not is_valid:
+        return jsonify(error), 400
+    
+    # 检查服务分类名称是否已被其他分类使用
+    existing_category = ServiceCategory.query.filter_by(name=data['name']).filter(ServiceCategory.id != category_id).first()
+    if existing_category:
+        return jsonify({'error': 'Service category name already exists'}), 400
+    
+    # 更新服务分类
+    if 'name' in data:
+        category.name = data['name']
+    if 'description' in data:
+        category.description = data['description']
+    
+    try:
+        db.session.commit()
+        return jsonify({
+            'id': category.id,
+            'name': category.name,
+            'description': category.description
+        })
+    except Exception as e:
+        db.session.rollback()
+        return handle_error(e)
+
+@api.route('/service_categories/<int:category_id>', methods=['DELETE'])
+@requires_resource_permission('service', 'delete')
+def delete_service_category(category_id):
+    """删除服务分类"""
+    category = ServiceCategory.query.get(category_id)
+    if not category:
+        return jsonify({'error': 'Service category not found'}), 404
+    
+    # 检查是否有服务项目关联
+    service_items = ServiceItem.query.filter_by(category_id=category_id).first()
+    if service_items:
+        return jsonify({'error': 'Cannot delete category with associated service items'}), 400
+    
+    try:
+        db.session.delete(category)
+        db.session.commit()
+        return jsonify({'message': 'Service category deleted successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return handle_error(e)
+
 @api.route('/service_items', methods=['GET'])
 def get_service_items():
     """获取所有服务项目"""
@@ -1861,7 +1935,7 @@ def get_service_items():
         'description': item.description,
         'category_id': item.category_id,
         'category_name': item.category.name if item.category else None,
-        'duration': item.duration,
+        'duration_minutes': item.duration_minutes,
         'price': item.price
     } for item in items])
 
@@ -1884,7 +1958,7 @@ def create_service_item():
         name=data['name'],
         description=data.get('description'),
         category_id=data.get('category_id'),
-        duration=data.get('duration'),
+        duration_minutes=data.get('duration_minutes'),
         price=data.get('price', 0)
     )
     
@@ -1897,9 +1971,87 @@ def create_service_item():
             'description': item.description,
             'category_id': item.category_id,
             'category_name': item.category.name if item.category else None,
-            'duration': item.duration,
+            'duration_minutes': item.duration_minutes,
             'price': item.price
         }), 201
+    except Exception as e:
+        db.session.rollback()
+        return handle_error(e)
+
+@api.route('/service_items/<int:item_id>', methods=['GET'])
+def get_service_item_detail(item_id):
+    """获取服务项目详情"""
+    item = ServiceItem.query.get(item_id)
+    if not item:
+        return jsonify({'error': 'Service item not found'}), 404
+    
+    return jsonify({
+        'id': item.id,
+        'name': item.name,
+        'description': item.description,
+        'category_id': item.category_id,
+        'category_name': item.category.name if item.category else None,
+        'duration_minutes': item.duration_minutes,
+        'price': item.price
+    })
+
+@api.route('/service_items/<int:item_id>', methods=['PUT'])
+@requires_resource_permission('service', 'update')
+def update_service_item(item_id):
+    """更新服务项目"""
+    item = ServiceItem.query.get(item_id)
+    if not item:
+        return jsonify({'error': 'Service item not found'}), 404
+    
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    # 验证数据
+    required_fields = ['name']
+    is_valid, error = validate_data(data, required_fields)
+    if not is_valid:
+        return jsonify(error), 400
+    
+    # 更新服务项目
+    if 'name' in data:
+        item.name = data['name']
+    if 'description' in data:
+        item.description = data['description']
+    if 'category_id' in data:
+        item.category_id = data['category_id']
+    if 'duration_minutes' in data:
+        item.duration_minutes = data['duration_minutes']
+    if 'price' in data:
+        item.price = data['price']
+    
+    try:
+        db.session.commit()
+        return jsonify({
+            'id': item.id,
+            'name': item.name,
+            'description': item.description,
+            'category_id': item.category_id,
+            'category_name': item.category.name if item.category else None,
+            'duration_minutes': item.duration_minutes,
+            'price': item.price
+        })
+    except Exception as e:
+        db.session.rollback()
+        return handle_error(e)
+
+@api.route('/service_items/<int:item_id>', methods=['DELETE'])
+@requires_resource_permission('service', 'delete')
+def delete_service_item(item_id):
+    """删除服务项目"""
+    item = ServiceItem.query.get(item_id)
+    if not item:
+        return jsonify({'error': 'Service item not found'}), 404
+    
+    try:
+        db.session.delete(item)
+        db.session.commit()
+        return jsonify({'message': 'Service item deleted successfully'}), 200
     except Exception as e:
         db.session.rollback()
         return handle_error(e)
