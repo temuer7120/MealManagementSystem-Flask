@@ -1,0 +1,38 @@
+<!--customer.wxml-->
+<view class="container">
+  <view class="card">
+    <view class="card-title">客户管理</view>
+    <view class="card-content">
+      <view class="mb-3">
+        <input type="text" placeholder="搜索客户" class="input" bindinput="searchCustomer" />
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{loading}}" class="loading">
+    <loading></loading>
+    <text>加载中...</text>
+  </view>
+
+  <view wx:else>
+    <view wx:for="{{customers}}" wx:key="id" class="card">
+      <view class="card-title">{{item.name}}</view>
+      <view class="card-content">
+        <view wx:if="{{item.restrictions}}">禁忌：{{item.restrictions}}</view>
+        <view wx:if="{{item.check_in_date}}">入住日期：{{item.check_in_date}}</view>
+        <view wx:if="{{item.check_out_date}}">退房日期：{{item.check_out_date}}</view>
+        <view class="mt-2">
+          <button type="primary" size="mini" bindtap="viewCustomerDetail" data-id="{{item.id}}">
+            查看详情
+          </button>
+        </view>
+      </view>
+    </view>
+
+    <view wx:if="{{customers.length === 0}}" class="card">
+      <view class="card-content" style="text-align: center;">
+        <text>暂无客户数据</text>
+      </view>
+    </view>
+  </view>
+</view>

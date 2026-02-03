@@ -1,0 +1,35 @@
+<!--index.wxml-->
+<view class="container">
+  <view class="card">
+    <view class="card-title">欢迎使用餐食管理系统</view>
+    <view class="card-content">
+      <view>本系统支持以下功能：</view>
+      <view>1. 上传和解析排餐表Excel文件</view>
+      <view>2. 管理菜单和每日餐单</view>
+      <view>3. 管理客户信息和饮食禁忌</view>
+      <view>4. 查看和编辑菜品信息</view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="card-title">快速操作</view>
+    <navigator url="/pages/upload/upload" class="btn-primary">
+      上传排餐表
+    </navigator>
+    <navigator url="/pages/menu/menu" class="btn-secondary">
+      查看菜单
+    </navigator>
+    <navigator url="/pages/customer/customer" class="btn-secondary">
+      查看客户
+    </navigator>
+  </view>
+
+  <view class="card">
+    <view class="card-title">系统状态</view>
+    <view class="card-content">
+      <view>后端服务状态：{{serverStatus}}</view>
+      <view>数据库连接：{{dbStatus}}</view>
+      <view>最后更新时间：{{lastUpdateTime}}</view>
+    </view>
+  </view>
+</view>

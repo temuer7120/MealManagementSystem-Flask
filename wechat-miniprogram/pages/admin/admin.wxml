@@ -1,0 +1,48 @@
+<!--admin.wxml-->
+<view class="container">
+  <view class="card">
+    <view class="card-title">系统管理</view>
+    <view class="card-content">
+      <view>管理功能：</view>
+    </view>
+  </view>
+
+  <navigator url="/pages/upload/upload" class="card">
+    <view class="card-content">
+      <view class="flex items-center">
+        <image src="/images/upload.png" style="width: 64rpx; height: 64rpx; margin-right: 16rpx;" />
+        <view>
+          <view style="font-weight: bold;">上传排餐表</view>
+          <view style="font-size: 24rpx; color: #666;">上传基础餐单和每日厨房餐单</view>
+        </view>
+        <image src="/images/arrow-right.png" style="width: 48rpx; height: 48rpx; margin-left: auto;" />
+      </view>
+    </view>
+  </navigator>
+
+  <view class="card">
+    <view class="card-content">
+      <view class="flex items-center">
+        <image src="/images/database.png" style="width: 64rpx; height: 64rpx; margin-right: 16rpx;" />
+        <view>
+          <view style="font-weight: bold;">数据管理</view>
+          <view style="font-size: 24rpx; color: #666;">查看和管理系统数据</view>
+        </view>
+        <image src="/images/arrow-right.png" style="width: 48rpx; height: 48rpx; margin-left: auto;" />
+      </view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="card-content">
+      <view class="flex items-center">
+        <image src="/images/settings.png" style="width: 64rpx; height: 64rpx; margin-right: 16rpx;" />
+        <view>
+          <view style="font-weight: bold;">系统设置</view>
+          <view style="font-size: 24rpx; color: #666;">系统配置和参数设置</view>
+        </view>
+        <image src="/images/arrow-right.png" style="width: 48rpx; height: 48rpx; margin-left: auto;" />
+      </view>
+    </view>
+  </view>
+</view>

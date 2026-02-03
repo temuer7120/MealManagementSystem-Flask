@@ -1,0 +1,30 @@
+<!--upload.wxml-->
+<view class="container">
+  <view class="card">
+    <view class="card-title">上传排餐表</view>
+    <view class="card-content">
+      <view>支持上传以下文件：</view>
+      <view>1. 基础餐单Excel文件</view>
+      <view>2. 每日厨房餐单Excel文件</view>
+    </view>
+  </view>
+
+  <view class="upload-area" bindtap="chooseFile">
+            <text style="font-size: 36rpx; margin-bottom: 20rpx; display: block;">📁</text>
+            <text>点击选择文件</text>
+            <text wx:if="{{fileName}}">已选择：{{fileName}}</text>
+          </view>
+
+  <button wx:if="{{fileName}}" type="primary" bindtap="uploadFile" class="btn-primary">
+    上传并解析
+  </button>
+
+  <view wx:if="{{loading}}" class="loading">
+    <loading></loading>
+    <text>上传中...</text>
+  </view>
+
+  <view wx:if="{{message}}" class="alert {{messageType}}">
+    {{message}}
+  </view>
+</view>
