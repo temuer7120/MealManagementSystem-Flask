@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from extensions import db, jwt
+from extensions import db, jwt, cache
 from models import MenuCategory, Dish, Menu, MenuDish, DailyMenu, DailyMenuDish, Customer, CustomerMenuSelection, User, Ingredient, DishIngredient, CustomerOrder, OrderItem, ServiceCategory, ServiceItem, ServiceBooking, ServiceFeedback, ConfinementMealPlan, ConfinementWeekPlan, ConfinementDayPlan, ConfinementMealItem, WeChatUser, CustomerWeChatLink, DeliverySchedule, DeliveryAssignment, DeliveryRoute, DeliveryStatusUpdate, AIAnalysisJob, AIAnalysisResult, ReportTemplate, GeneratedReport, AlertRule, Alert, Supplier, PurchaseOrder, PurchaseOrderItem, InventoryTransaction, InventoryAlert, IngredientCategory, CustomerDietaryPreference, Role, Permission, UserRole, RolePermission, ServicePackage, ServicePackageItem
 import pandas as pd
 import os
@@ -54,6 +54,481 @@ def register():
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
+
+# 角色管理API
+@api.route('/roles', methods=['GET'])
+@requires_permission('role:read')
+def get_roles():
+    """获取所有角色"""
+    roles = Role.query.all()
+    return jsonify([{
+        'id': role.id,
+        'name': role.name,
+        'description': role.description
+    } for role in roles])
+
+@api.route('/roles', methods=['POST'])
+@requires_permission('role:create')
+def create_role():
+    """创建新角色"""
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    # 验证数据
+    required_fields = ['name']
+    is_valid, error = validate_data(data, required_fields)
+    if not is_valid:
+        return jsonify(error), 400
+    
+    # 检查角色是否已存在
+    existing_role = Role.query.filter_by(name=data['name']).first()
+    if existing_role:
+        return jsonify({'error': 'Role already exists'}), 400
+    
+    # 创建角色
+    role = Role(
+        name=data['name'],
+        description=data.get('description')
+    )
+    
+    try:
+        db.session.add(role)
+        db.session.commit()
+        return jsonify({
+            'id': role.id,
+            'name': role.name,
+            'description': role.description
+        }), 201
+    except Exception as e:
+        db.session.rollback()
+        return handle_error(e)
+
+@api.route('/roles/<int:role_id>', methods=['GET'])
+@requires_permission('role:read')
+def get_role_detail(role_id):
+    """获取角色详情"""
+    role = Role.query.get(role_id)
+    if not role:
+        return jsonify({'error': 'Role not found'}), 404
+    
+    # 获取角色的权限
+    permissions = [{
+        'id': rp.permission.id,
+        'name': rp.permission.name,
+        'code': rp.permission.code
+    } for rp in role.role_permissions]
+    
+    return jsonify({
+        'id': role.id,
+        'name': role.name,
+        'description': role.description,
+        'permissions': permissions
+    })
+
+@api.route('/roles/<int:role_id>', methods=['PUT'])
+@requires_permission('role:update')
+def update_role(role_id):
+    """更新角色信息"""
+    role = Role.query.get(role_id)
+    if not role:
+        return jsonify({'error': 'Role not found'}), 404
+    
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    # 验证数据
+    required_fields = ['name']
+    is_valid, error = validate_data(data, required_fields)
+    if not is_valid:
+        return jsonify(error), 400
+    
+    # 检查角色名称是否已被其他角色使用
+    existing_role = Role.query.filter_by(name=data['name']).filter(Role.id != role_id).first()
+    if existing_role:
+        return jsonify({'error': 'Role name already exists'}), 400
+    
+    # 更新角色信息
+    if 'name' in data:
+        role.name = data['name']
+    if 'description' in data:
+        role.description = data['description']
+    
+    try:
+        db.session.commit()
+        return jsonify({
+            'id': role.id,
+            'name': role.name,
+            'description': role.description
+        })
+    except Exception as e:
+        db.session.rollback()
+        return handle_error(e)
+
+@api.route('/roles/<int:role_id>', methods=['DELETE'])
+@requires_permission('role:delete')
+def delete_role(role_id):
+    """删除角色"""
+    role = Role.query.get(role_id)
+    if not role:
+        return jsonify({'error': 'Role not found'}), 404
+    
+    # 检查是否有用户关联到该角色
+    user_roles = UserRole.query.filter_by(role_id=role_id).first()
+    if user_roles:
+        return jsonify({'error': 'Cannot delete role with associated users'}), 400
+    
+    try:
+        # 删除角色的权限关联
+        RolePermission.query.filter_by(role_id=role_id).delete()
+        # 删除角色
+        db.session.delete(role)
+        db.session.commit()
+        return jsonify({'message': 'Role deleted successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return handle_error(e)
+
+# 权限管理API
+@api.route('/permissions', methods=['GET'])
+@requires_permission('permission:read')
+def get_permissions():
+    """获取所有权限"""
+    permissions = Permission.query.all()
+    return jsonify([{
+        'id': permission.id,
+        'name': permission.name,
+        'code': permission.code,
+        'module': permission.module,
+        'description': permission.description
+    } for permission in permissions])
+
+@api.route('/permissions', methods=['POST'])
+@requires_permission('permission:create')
+def create_permission():
+    """创建新权限"""
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    # 验证数据
+    required_fields = ['name', 'code']
+    is_valid, error = validate_data(data, required_fields)
+    if not is_valid:
+        return jsonify(error), 400
+    
+    # 检查权限是否已存在
+    existing_permission = Permission.query.filter_by(code=data['code']).first()
+    if existing_permission:
+        return jsonify({'error': 'Permission already exists'}), 400
+    
+    # 创建权限
+    permission = Permission(
+        name=data['name'],
+        code=data['code'],
+        module=data.get('module'),
+        description=data.get('description')
+    )
+    
+    try:
+        db.session.add(permission)
+        db.session.commit()
+        return jsonify({
+            'id': permission.id,
+            'name': permission.name,
+            'code': permission.code,
+            'module': permission.module,
+            'description': permission.description
+        }), 201
+    except Exception as e:
+        db.session.rollback()
+        return handle_error(e)
+
+@api.route('/permissions/<int:permission_id>', methods=['GET'])
+@requires_permission('permission:read')
+def get_permission_detail(permission_id):
+    """获取权限详情"""
+    permission = Permission.query.get(permission_id)
+    if not permission:
+        return jsonify({'error': 'Permission not found'}), 404
+    
+    return jsonify({
+        'id': permission.id,
+        'name': permission.name,
+        'code': permission.code,
+        'module': permission.module,
+        'description': permission.description
+    })
+
+@api.route('/permissions/<int:permission_id>', methods=['PUT'])
+@requires_permission('permission:update')
+def update_permission(permission_id):
+    """更新权限信息"""
+    permission = Permission.query.get(permission_id)
+    if not permission:
+        return jsonify({'error': 'Permission not found'}), 404
+    
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    # 验证数据
+    required_fields = ['name', 'code']
+    is_valid, error = validate_data(data, required_fields)
+    if not is_valid:
+        return jsonify(error), 400
+    
+    # 检查权限代码是否已被其他权限使用
+    existing_permission = Permission.query.filter_by(code=data['code']).filter(Permission.id != permission_id).first()
+    if existing_permission:
+        return jsonify({'error': 'Permission code already exists'}), 400
+    
+    # 更新权限信息
+    if 'name' in data:
+        permission.name = data['name']
+    if 'code' in data:
+        permission.code = data['code']
+    if 'module' in data:
+        permission.module = data['module']
+    if 'description' in data:
+        permission.description = data['description']
+    
+    try:
+        db.session.commit()
+        return jsonify({
+            'id': permission.id,
+            'name': permission.name,
+            'code': permission.code,
+            'module': permission.module,
+            'description': permission.description
+        })
+    except Exception as e:
+        db.session.rollback()
+        return handle_error(e)
+
+@api.route('/permissions/<int:permission_id>', methods=['DELETE'])
+@requires_permission('permission:delete')
+def delete_permission(permission_id):
+    """删除权限"""
+    permission = Permission.query.get(permission_id)
+    if not permission:
+        return jsonify({'error': 'Permission not found'}), 404
+    
+    try:
+        # 删除权限的角色关联
+        RolePermission.query.filter_by(permission_id=permission_id).delete()
+        # 删除权限
+        db.session.delete(permission)
+        db.session.commit()
+        return jsonify({'message': 'Permission deleted successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return handle_error(e)
+
+# 用户角色管理API
+@api.route('/users/<int:user_id>/roles', methods=['GET'])
+@requires_permission('user:read')
+def get_user_roles(user_id):
+    """获取用户的角色"""
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    # 获取用户的角色
+    roles = [{
+        'id': ur.role.id,
+        'name': ur.role.name,
+        'description': ur.role.description
+    } for ur in user.user_roles]
+    
+    return jsonify({
+        'user_id': user.id,
+        'username': user.username,
+        'roles': roles
+    })
+
+@api.route('/users/<int:user_id>/roles', methods=['POST'])
+@requires_permission('user:update')
+def add_user_role(user_id):
+    """为用户添加角色"""
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    # 验证数据
+    required_fields = ['role_id']
+    is_valid, error = validate_data(data, required_fields)
+    if not is_valid:
+        return jsonify(error), 400
+    
+    # 检查角色是否存在
+    role = Role.query.get(data['role_id'])
+    if not role:
+        return jsonify({'error': 'Role not found'}), 404
+    
+    # 检查用户是否已拥有该角色
+    existing_user_role = UserRole.query.filter_by(
+        user_id=user_id,
+        role_id=data['role_id']
+    ).first()
+    if existing_user_role:
+        return jsonify({'error': 'User already has this role'}), 400
+    
+    # 为用户添加角色
+    user_role = UserRole(
+        user_id=user_id,
+        role_id=data['role_id']
+    )
+    
+    try:
+        db.session.add(user_role)
+        db.session.commit()
+        return jsonify({
+            'user_id': user.id,
+            'username': user.username,
+            'role_id': role.id,
+            'role_name': role.name
+        }), 201
+    except Exception as e:
+        db.session.rollback()
+        return handle_error(e)
+
+@api.route('/users/<int:user_id>/roles/<int:role_id>', methods=['DELETE'])
+@requires_permission('user:update')
+def remove_user_role(user_id, role_id):
+    """从用户移除角色"""
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    # 检查角色是否存在
+    role = Role.query.get(role_id)
+    if not role:
+        return jsonify({'error': 'Role not found'}), 404
+    
+    # 检查用户是否拥有该角色
+    user_role = UserRole.query.filter_by(
+        user_id=user_id,
+        role_id=role_id
+    ).first()
+    if not user_role:
+        return jsonify({'error': 'User does not have this role'}), 400
+    
+    try:
+        db.session.delete(user_role)
+        db.session.commit()
+        return jsonify({'message': 'Role removed from user successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return handle_error(e)
+
+# 角色权限管理API
+@api.route('/roles/<int:role_id>/permissions', methods=['GET'])
+@requires_permission('role:read')
+def get_role_permissions(role_id):
+    """获取角色的权限"""
+    role = Role.query.get(role_id)
+    if not role:
+        return jsonify({'error': 'Role not found'}), 404
+    
+    # 获取角色的权限
+    permissions = [{
+        'id': rp.permission.id,
+        'name': rp.permission.name,
+        'code': rp.permission.code,
+        'module': rp.permission.module
+    } for rp in role.role_permissions]
+    
+    return jsonify({
+        'role_id': role.id,
+        'role_name': role.name,
+        'permissions': permissions
+    })
+
+@api.route('/roles/<int:role_id>/permissions', methods=['POST'])
+@requires_permission('role:update')
+def add_role_permission(role_id):
+    """为角色添加权限"""
+    role = Role.query.get(role_id)
+    if not role:
+        return jsonify({'error': 'Role not found'}), 404
+    
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    # 验证数据
+    required_fields = ['permission_id']
+    is_valid, error = validate_data(data, required_fields)
+    if not is_valid:
+        return jsonify(error), 400
+    
+    # 检查权限是否存在
+    permission = Permission.query.get(data['permission_id'])
+    if not permission:
+        return jsonify({'error': 'Permission not found'}), 404
+    
+    # 检查角色是否已拥有该权限
+    existing_role_permission = RolePermission.query.filter_by(
+        role_id=role_id,
+        permission_id=data['permission_id']
+    ).first()
+    if existing_role_permission:
+        return jsonify({'error': 'Role already has this permission'}), 400
+    
+    # 为角色添加权限
+    role_permission = RolePermission(
+        role_id=role_id,
+        permission_id=data['permission_id']
+    )
+    
+    try:
+        db.session.add(role_permission)
+        db.session.commit()
+        return jsonify({
+            'role_id': role.id,
+            'role_name': role.name,
+            'permission_id': permission.id,
+            'permission_name': permission.name,
+            'permission_code': permission.code
+        }), 201
+    except Exception as e:
+        db.session.rollback()
+        return handle_error(e)
+
+@api.route('/roles/<int:role_id>/permissions/<int:permission_id>', methods=['DELETE'])
+@requires_permission('role:update')
+def remove_role_permission(role_id, permission_id):
+    """从角色移除权限"""
+    role = Role.query.get(role_id)
+    if not role:
+        return jsonify({'error': 'Role not found'}), 404
+    
+    # 检查权限是否存在
+    permission = Permission.query.get(permission_id)
+    if not permission:
+        return jsonify({'error': 'Permission not found'}), 404
+    
+    # 检查角色是否拥有该权限
+    role_permission = RolePermission.query.filter_by(
+        role_id=role_id,
+        permission_id=permission_id
+    ).first()
+    if not role_permission:
+        return jsonify({'error': 'Role does not have this permission'}), 400
+    
+    try:
+        db.session.delete(role_permission)
+        db.session.commit()
+        return jsonify({'message': 'Permission removed from role successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return handle_error(e)
 
 @api.route('/auth/login', methods=['POST'])
 def login():
@@ -125,10 +600,26 @@ def upload_excel():
     
     try:
         # 保存文件
-        if not os.path.exists('uploads'):
-            os.makedirs('uploads')
-        filepath = os.path.join('uploads', file.filename)
+        import config
+        upload_folder = config.UPLOAD_FOLDER
+        if not os.path.exists(upload_folder):
+            os.makedirs(upload_folder)
+        
+        # 安全的文件名处理
+        import uuid
+        file_extension = os.path.splitext(file.filename)[1]
+        safe_filename = f'excel_{uuid.uuid4().hex[:8]}_{datetime.now().strftime("%Y%m%d%H%M%S")}{file_extension}'
+        filepath = os.path.join(upload_folder, safe_filename)
         file.save(filepath)
+        
+        # 文件内容验证（简单的Excel文件验证）
+        try:
+            import pandas as pd
+            # 尝试读取文件，验证是否为有效的Excel文件
+            pd.read_excel(filepath)
+        except Exception as e:
+            os.remove(filepath)  # 删除无效文件
+            return jsonify({'error': 'Invalid Excel file content'}), 400
         
         # 解析文件（只解析每日厨房餐单，基础餐单改为导出）
         if '每日厨房餐单' in file.filename:
@@ -213,6 +704,7 @@ def export_basic_menu():
 
 # 提示阈值管理API
 @api.route('/alert_thresholds', methods=['GET'])
+@cache.cached(timeout=600, key_prefix='alert_thresholds')
 def get_alert_thresholds():
     """获取所有提示阈值"""
     thresholds = AlertRule.query.all()
@@ -337,6 +829,7 @@ def delete_alert_threshold(threshold_id):
 
 # 提示管理API
 @api.route('/alerts', methods=['GET'])
+@cache.cached(timeout=300, key_prefix='alerts')
 def get_alerts():
     """获取所有提示"""
     alerts = Alert.query.order_by(Alert.created_at.desc()).all()
@@ -769,12 +1262,37 @@ def recognize_id_card():
     if not file.filename.endswith(('.jpg', '.jpeg', '.png', '.bmp')):
         return jsonify({'error': 'Invalid file format'}), 400
     
+    # 文件大小限制（5MB）
+    file.seek(0, 2)  # 移动到文件末尾
+    file_size = file.tell()  # 获取文件大小
+    file.seek(0)  # 重置文件指针
+    
+    if file_size > 5 * 1024 * 1024:
+        return jsonify({'error': 'File size exceeds 5MB limit'}), 400
+    
     try:
         # 保存文件
-        if not os.path.exists('uploads'):
-            os.makedirs('uploads')
-        filepath = os.path.join('uploads', 'id_card_' + datetime.now().strftime('%Y%m%d%H%M%S') + '_' + file.filename)
+        import config
+        upload_folder = config.UPLOAD_FOLDER
+        if not os.path.exists(upload_folder):
+            os.makedirs(upload_folder)
+        
+        # 安全的文件名处理
+        import uuid
+        file_extension = os.path.splitext(file.filename)[1]
+        safe_filename = f'id_card_{uuid.uuid4().hex[:8]}_{datetime.now().strftime("%Y%m%d%H%M%S")}{file_extension}'
+        filepath = os.path.join(upload_folder, safe_filename)
         file.save(filepath)
+        
+        # 简单的图片文件验证
+        try:
+            from PIL import Image
+            # 尝试打开文件，验证是否为有效的图片文件
+            img = Image.open(filepath)
+            img.verify()  # 验证图片文件的完整性
+        except Exception as e:
+            os.remove(filepath)  # 删除无效文件
+            return jsonify({'error': 'Invalid image file content'}), 400
         
         # 模拟身份证识别结果
         # 实际项目中，这里应该调用OCR API进行身份证识别
@@ -973,6 +1491,7 @@ def parse_daily_kitchen_menu(filepath):
         raise
 
 @api.route('/menus', methods=['GET'])
+@cache.cached(timeout=600, key_prefix='menus')
 def get_menus():
     """获取所有菜单"""
     menus = Menu.query.all()
@@ -983,21 +1502,153 @@ def get_menus():
         'week_number': menu.week_number
     } for menu in menus])
 
+@api.route('/menus', methods=['POST'])
+@requires_resource_permission('menu', 'create')
+def create_menu():
+    """创建新菜单"""
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    # 验证数据
+    required_fields = ['name']
+    is_valid, error = validate_data(data, required_fields)
+    if not is_valid:
+        return jsonify(error), 400
+    
+    # 检查菜单是否已存在
+    existing_menu = Menu.query.filter_by(name=data['name']).first()
+    if existing_menu:
+        return jsonify({'error': 'Menu already exists'}), 400
+    
+    # 创建菜单
+    menu = Menu(
+        name=data['name'],
+        description=data.get('description'),
+        week_number=data.get('week_number'),
+        year=data.get('year'),
+        start_date=data.get('start_date'),
+        end_date=data.get('end_date'),
+        status=data.get('status', 'draft')
+    )
+    
+    try:
+        db.session.add(menu)
+        db.session.commit()
+        return jsonify({
+            'id': menu.id,
+            'name': menu.name,
+            'description': menu.description,
+            'week_number': menu.week_number,
+            'year': menu.year,
+            'start_date': menu.start_date.strftime('%Y-%m-%d') if menu.start_date else None,
+            'end_date': menu.end_date.strftime('%Y-%m-%d') if menu.end_date else None,
+            'status': menu.status
+        }), 201
+    except Exception as e:
+        db.session.rollback()
+        return handle_error(e)
+
+@api.route('/menus/<int:menu_id>', methods=['PUT'])
+@requires_resource_permission('menu', 'update')
+def update_menu(menu_id):
+    """更新菜单信息"""
+    menu = Menu.query.get(menu_id)
+    if not menu:
+        return jsonify({'error': 'Menu not found'}), 404
+    
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    # 检查菜单名称是否已被其他菜单使用
+    if 'name' in data:
+        existing_menu = Menu.query.filter_by(name=data['name']).filter(Menu.id != menu_id).first()
+        if existing_menu:
+            return jsonify({'error': 'Menu name already exists'}), 400
+        menu.name = data['name']
+    
+    # 更新其他字段
+    if 'description' in data:
+        menu.description = data['description']
+    if 'week_number' in data:
+        menu.week_number = data['week_number']
+    if 'year' in data:
+        menu.year = data['year']
+    if 'start_date' in data:
+        try:
+            menu.start_date = datetime.strptime(data['start_date'], '%Y-%m-%d').date()
+        except ValueError:
+            return jsonify({'error': 'Invalid start_date format'}), 400
+    if 'end_date' in data:
+        try:
+            menu.end_date = datetime.strptime(data['end_date'], '%Y-%m-%d').date()
+        except ValueError:
+            return jsonify({'error': 'Invalid end_date format'}), 400
+    if 'status' in data:
+        menu.status = data['status']
+    
+    try:
+        db.session.commit()
+        return jsonify({
+            'id': menu.id,
+            'name': menu.name,
+            'description': menu.description,
+            'week_number': menu.week_number,
+            'year': menu.year,
+            'start_date': menu.start_date.strftime('%Y-%m-%d') if menu.start_date else None,
+            'end_date': menu.end_date.strftime('%Y-%m-%d') if menu.end_date else None,
+            'status': menu.status
+        })
+    except Exception as e:
+        db.session.rollback()
+        return handle_error(e)
+
+@api.route('/menus/<int:menu_id>', methods=['DELETE'])
+@requires_resource_permission('menu', 'delete')
+def delete_menu(menu_id):
+    """删除菜单"""
+    menu = Menu.query.get(menu_id)
+    if not menu:
+        return jsonify({'error': 'Menu not found'}), 404
+    
+    try:
+        # 删除菜单与菜品的关联
+        MenuDish.query.filter_by(menu_id=menu_id).delete()
+        # 删除菜单
+        db.session.delete(menu)
+        db.session.commit()
+        return jsonify({'message': 'Menu deleted successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return handle_error(e)
+
 @api.route('/daily_menus', methods=['GET'])
 def get_daily_menus():
     """获取每日菜单"""
     date = request.args.get('date')
     if date:
-        date_obj = datetime.strptime(date, '%Y-%m-%d').date()
-        daily_menus = DailyMenu.query.filter_by(date=date_obj).all()
+        cache_key = f'daily_menus_{date}'
+        @cache.cached(timeout=300, key_prefix=cache_key)
+        def get_daily_menu_by_date():
+            date_obj = datetime.strptime(date, '%Y-%m-%d').date()
+            daily_menus = DailyMenu.query.filter_by(date=date_obj).all()
+            return jsonify([{
+                'id': menu.id,
+                'date': menu.date.strftime('%Y-%m-%d'),
+                'description': menu.description
+            } for menu in daily_menus])
+        return get_daily_menu_by_date()
     else:
-        daily_menus = DailyMenu.query.all()
-    
-    return jsonify([{
-        'id': menu.id,
-        'date': menu.date.strftime('%Y-%m-%d'),
-        'description': menu.description
-    } for menu in daily_menus])
+        @cache.cached(timeout=300, key_prefix='daily_menus_all')
+        def get_all_daily_menus():
+            daily_menus = DailyMenu.query.all()
+            return jsonify([{
+                'id': menu.id,
+                'date': menu.date.strftime('%Y-%m-%d'),
+                'description': menu.description
+            } for menu in daily_menus])
+        return get_all_daily_menus()
 
 @api.route('/customers', methods=['GET'])
 def get_customers():
@@ -1010,6 +1661,62 @@ def get_customers():
         'check_in_date': customer.check_in_date.strftime('%Y-%m-%d') if customer.check_in_date else None,
         'check_out_date': customer.check_out_date.strftime('%Y-%m-%d') if customer.check_out_date else None
     } for customer in customers])
+
+@api.route('/customers', methods=['POST'])
+@requires_resource_permission('customer', 'create')
+def create_customer():
+    """创建新客户"""
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    # 验证数据
+    required_fields = ['name']
+    is_valid, error = validate_data(data, required_fields)
+    if not is_valid:
+        return jsonify(error), 400
+    
+    # 检查客户是否已存在
+    existing_customer = Customer.query.filter_by(name=data['name']).first()
+    if existing_customer:
+        return jsonify({'error': 'Customer already exists'}), 400
+    
+    # 创建客户
+    customer = Customer(
+        name=data['name'],
+        email=data.get('email'),
+        phone=data.get('phone'),
+        date_of_birth=data.get('date_of_birth'),
+        gender=data.get('gender'),
+        height_cm=data.get('height_cm'),
+        weight_kg=data.get('weight_kg'),
+        check_in_date=data.get('check_in_date'),
+        check_out_date=data.get('check_out_date'),
+        id_card_number=data.get('id_card_number'),
+        id_card_image_url=data.get('id_card_image_url'),
+        physical_exam_report_url=data.get('physical_exam_report_url'),
+        health_conditions=data.get('health_conditions'),
+        dietary_restrictions=data.get('dietary_restrictions'),
+        allergies=data.get('allergies'),
+        preferred_foods=data.get('preferred_foods'),
+        meal_plan_type=data.get('meal_plan_type'),
+        status=data.get('status', 'active')
+    )
+    
+    try:
+        db.session.add(customer)
+        db.session.commit()
+        return jsonify({
+            'id': customer.id,
+            'name': customer.name,
+            'email': customer.email,
+            'phone': customer.phone,
+            'check_in_date': customer.check_in_date.strftime('%Y-%m-%d') if customer.check_in_date else None,
+            'check_out_date': customer.check_out_date.strftime('%Y-%m-%d') if customer.check_out_date else None
+        }), 201
+    except Exception as e:
+        db.session.rollback()
+        return handle_error(e)
 
 @api.route('/dishes', methods=['GET'])
 def get_dishes():
@@ -1148,8 +1855,18 @@ def update_customer(customer_id):
     # 更新客户信息
     if 'name' in data:
         customer.name = data['name']
-    if 'dietary_restrictions' in data:
-        customer.dietary_restrictions = data['dietary_restrictions']
+    if 'email' in data:
+        customer.email = data['email']
+    if 'phone' in data:
+        customer.phone = data['phone']
+    if 'date_of_birth' in data:
+        customer.date_of_birth = data['date_of_birth']
+    if 'gender' in data:
+        customer.gender = data['gender']
+    if 'height_cm' in data:
+        customer.height_cm = data['height_cm']
+    if 'weight_kg' in data:
+        customer.weight_kg = data['weight_kg']
     if 'check_in_date' in data:
         try:
             customer.check_in_date = datetime.strptime(data['check_in_date'], '%Y-%m-%d').date()
@@ -1160,16 +1877,59 @@ def update_customer(customer_id):
             customer.check_out_date = datetime.strptime(data['check_out_date'], '%Y-%m-%d').date()
         except ValueError:
             return jsonify({'error': 'Invalid check_out_date format'}), 400
+    if 'id_card_number' in data:
+        customer.id_card_number = data['id_card_number']
+    if 'id_card_image_url' in data:
+        customer.id_card_image_url = data['id_card_image_url']
+    if 'physical_exam_report_url' in data:
+        customer.physical_exam_report_url = data['physical_exam_report_url']
+    if 'health_conditions' in data:
+        customer.health_conditions = data['health_conditions']
+    if 'dietary_restrictions' in data:
+        customer.dietary_restrictions = data['dietary_restrictions']
+    if 'allergies' in data:
+        customer.allergies = data['allergies']
+    if 'preferred_foods' in data:
+        customer.preferred_foods = data['preferred_foods']
+    if 'meal_plan_type' in data:
+        customer.meal_plan_type = data['meal_plan_type']
+    if 'status' in data:
+        customer.status = data['status']
     
     try:
         db.session.commit()
         return jsonify({
             'id': customer.id,
             'name': customer.name,
-            'dietary_restrictions': customer.dietary_restrictions,
+            'email': customer.email,
+            'phone': customer.phone,
             'check_in_date': customer.check_in_date.strftime('%Y-%m-%d') if customer.check_in_date else None,
-            'check_out_date': customer.check_out_date.strftime('%Y-%m-%d') if customer.check_out_date else None
+            'check_out_date': customer.check_out_date.strftime('%Y-%m-%d') if customer.check_out_date else None,
+            'status': customer.status
         })
+    except Exception as e:
+        db.session.rollback()
+        return handle_error(e)
+
+@api.route('/customers/<int:customer_id>', methods=['DELETE'])
+@requires_resource_permission('customer', 'delete')
+def delete_customer(customer_id):
+    """删除客户"""
+    customer = Customer.query.get(customer_id)
+    if not customer:
+        return jsonify({'error': 'Customer not found'}), 404
+    
+    try:
+        # 删除客户相关的关联数据
+        CustomerMenuSelection.query.filter_by(customer_id=customer_id).delete()
+        CustomerOrder.query.filter_by(customer_id=customer_id).delete()
+        DeliveryAssignment.query.filter_by(customer_id=customer_id).delete()
+        CustomerDietaryPreference.query.filter_by(customer_id=customer_id).delete()
+        
+        # 删除客户
+        db.session.delete(customer)
+        db.session.commit()
+        return jsonify({'message': 'Customer deleted successfully'}), 200
     except Exception as e:
         db.session.rollback()
         return handle_error(e)
@@ -1352,6 +2112,101 @@ def init_sample_data():
     except Exception as e:
         return handle_error(e)
 
+# 食材分类API
+@api.route('/ingredient_categories', methods=['GET'])
+def get_ingredient_categories():
+    """获取所有食材分类"""
+    categories = IngredientCategory.query.all()
+    return jsonify([{
+        'id': category.id,
+        'name': category.name,
+        'description': category.description
+    } for category in categories])
+
+@api.route('/ingredient_categories', methods=['POST'])
+@requires_resource_permission('ingredient', 'create')
+def create_ingredient_category():
+    """创建新食材分类"""
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    # 验证数据
+    required_fields = ['name']
+    is_valid, error = validate_data(data, required_fields)
+    if not is_valid:
+        return jsonify(error), 400
+    
+    # 检查分类是否已存在
+    existing_category = IngredientCategory.query.filter_by(name=data['name']).first()
+    if existing_category:
+        return jsonify({'error': 'Ingredient category already exists'}), 400
+    
+    # 创建食材分类
+    category = IngredientCategory(
+        name=data['name'],
+        description=data.get('description')
+    )
+    
+    try:
+        db.session.add(category)
+        db.session.commit()
+        return jsonify({
+            'id': category.id,
+            'name': category.name,
+            'description': category.description
+        }), 201
+    except Exception as e:
+        db.session.rollback()
+        return handle_error(e)
+
+# 供应商管理API
+
+
+@api.route('/suppliers', methods=['POST'])
+@requires_resource_permission('supplier', 'create')
+def create_supplier():
+    """创建新供应商"""
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    # 验证数据
+    required_fields = ['name']
+    is_valid, error = validate_data(data, required_fields)
+    if not is_valid:
+        return jsonify(error), 400
+    
+    # 检查供应商是否已存在
+    existing_supplier = Supplier.query.filter_by(name=data['name']).first()
+    if existing_supplier:
+        return jsonify({'error': 'Supplier already exists'}), 400
+    
+    # 创建供应商
+    supplier = Supplier(
+        name=data['name'],
+        contact_person=data.get('contact_person'),
+        phone=data.get('phone'),
+        email=data.get('email'),
+        address=data.get('address'),
+        description=data.get('description')
+    )
+    
+    try:
+        db.session.add(supplier)
+        db.session.commit()
+        return jsonify({
+            'id': supplier.id,
+            'name': supplier.name,
+            'contact_person': supplier.contact_person,
+            'phone': supplier.phone,
+            'email': supplier.email,
+            'address': supplier.address
+        }), 201
+    except Exception as e:
+        db.session.rollback()
+        return handle_error(e)
+
 # 食材相关API
 @api.route('/ingredients', methods=['GET'])
 def get_ingredients():
@@ -1362,7 +2217,9 @@ def get_ingredients():
         'name': ingredient.name,
         'description': ingredient.description,
         'current_stock': float(ingredient.current_stock),
-        'unit_of_measure': ingredient.unit_of_measure
+        'unit_of_measure': ingredient.unit_of_measure,
+        'category_id': ingredient.category_id,
+        'category_name': ingredient.category.name if ingredient.category else None
     } for ingredient in ingredients])
 
 @api.route('/ingredients', methods=['POST'])
@@ -1389,7 +2246,10 @@ def create_ingredient():
         name=data['name'],
         description=data.get('description'),
         current_stock=data.get('current_stock', 0),
-        unit_of_measure=data.get('unit_of_measure', 'g')
+        unit_of_measure=data.get('unit_of_measure', 'g'),
+        category_id=data.get('category_id'),
+        reorder_point=data.get('reorder_point', 0),
+        supplier_id=data.get('supplier_id')
     )
     
     try:
@@ -1399,8 +2259,10 @@ def create_ingredient():
             'id': ingredient.id,
             'name': ingredient.name,
             'description': ingredient.description,
-            'stock': ingredient.stock,
-            'unit': ingredient.unit
+            'current_stock': float(ingredient.current_stock),
+            'unit_of_measure': ingredient.unit_of_measure,
+            'category_id': ingredient.category_id,
+            'supplier_id': ingredient.supplier_id
         }), 201
     except Exception as e:
         db.session.rollback()
@@ -1417,8 +2279,13 @@ def get_ingredient_detail(ingredient_id):
         'id': ingredient.id,
         'name': ingredient.name,
         'description': ingredient.description,
-        'stock': ingredient.stock,
-        'unit': ingredient.unit
+        'current_stock': float(ingredient.current_stock),
+        'unit_of_measure': ingredient.unit_of_measure,
+        'category_id': ingredient.category_id,
+        'category_name': ingredient.category.name if ingredient.category else None,
+        'supplier_id': ingredient.supplier_id,
+        'supplier_name': ingredient.supplier.name if ingredient.supplier else None,
+        'reorder_point': ingredient.reorder_point
     })
 
 @api.route('/ingredients/<int:ingredient_id>', methods=['PUT'])
@@ -1444,10 +2311,16 @@ def update_ingredient(ingredient_id):
     # 更新其他字段
     if 'description' in data:
         ingredient.description = data['description']
-    if 'stock' in data:
-        ingredient.stock = data['stock']
-    if 'unit' in data:
-        ingredient.unit = data['unit']
+    if 'current_stock' in data:
+        ingredient.current_stock = data['current_stock']
+    if 'unit_of_measure' in data:
+        ingredient.unit_of_measure = data['unit_of_measure']
+    if 'category_id' in data:
+        ingredient.category_id = data['category_id']
+    if 'supplier_id' in data:
+        ingredient.supplier_id = data['supplier_id']
+    if 'reorder_point' in data:
+        ingredient.reorder_point = data['reorder_point']
     
     try:
         db.session.commit()
@@ -1455,8 +2328,11 @@ def update_ingredient(ingredient_id):
             'id': ingredient.id,
             'name': ingredient.name,
             'description': ingredient.description,
-            'stock': ingredient.stock,
-            'unit': ingredient.unit
+            'current_stock': float(ingredient.current_stock),
+            'unit_of_measure': ingredient.unit_of_measure,
+            'category_id': ingredient.category_id,
+            'supplier_id': ingredient.supplier_id,
+            'reorder_point': ingredient.reorder_point
         })
     except Exception as e:
         db.session.rollback()
@@ -1478,6 +2354,213 @@ def delete_ingredient(ingredient_id):
         db.session.rollback()
         return handle_error(e)
 
+# 采购订单API
+@api.route('/purchase_orders', methods=['GET'])
+@requires_resource_permission('purchase_order', 'read')
+def get_purchase_orders():
+    """获取所有采购订单"""
+    orders = PurchaseOrder.query.all()
+    return jsonify([{
+        'id': order.id,
+        'order_number': order.order_number,
+        'supplier_id': order.supplier_id,
+        'supplier_name': order.supplier.name if order.supplier else None,
+        'order_date': order.order_date.strftime('%Y-%m-%d'),
+        'expected_delivery_date': order.expected_delivery_date.strftime('%Y-%m-%d') if order.expected_delivery_date else None,
+        'status': order.status,
+        'total_amount': order.total_amount
+    } for order in orders])
+
+@api.route('/purchase_orders', methods=['POST'])
+@requires_resource_permission('purchase_order', 'create')
+def create_purchase_order():
+    """创建新采购订单"""
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    # 验证数据
+    required_fields = ['supplier_id', 'items']
+    is_valid, error = validate_data(data, required_fields)
+    if not is_valid:
+        return jsonify(error), 400
+    
+    # 检查供应商是否存在
+    supplier = Supplier.query.get(data['supplier_id'])
+    if not supplier:
+        return jsonify({'error': 'Supplier not found'}), 404
+    
+    # 生成订单号
+    import uuid
+    order_number = f'PO_{uuid.uuid4().hex[:8].upper()}_{datetime.now().strftime("%Y%m%d")}'
+    
+    # 创建采购订单
+    order = PurchaseOrder(
+        order_number=order_number,
+        supplier_id=data['supplier_id'],
+        order_date=data.get('order_date', datetime.now().date()),
+        expected_delivery_date=data.get('expected_delivery_date'),
+        status=data.get('status', 'pending'),
+        total_amount=0  # 初始化为0，后续计算
+    )
+    
+    try:
+        db.session.add(order)
+        db.session.flush()  # 获取order.id
+        
+        # 添加采购订单详情
+        total_amount = 0
+        for item_data in data['items']:
+            # 验证订单详情数据
+            item_required_fields = ['ingredient_id', 'quantity', 'unit_price']
+            item_is_valid, item_error = validate_data(item_data, item_required_fields)
+            if not item_is_valid:
+                return jsonify(item_error), 400
+            
+            # 检查食材是否存在
+            ingredient = Ingredient.query.get(item_data['ingredient_id'])
+            if not ingredient:
+                return jsonify({'error': f'Ingredient {item_data["ingredient_id"]} not found'}), 404
+            
+            # 创建采购订单详情
+            order_item = PurchaseOrderItem(
+                order_id=order.id,
+                ingredient_id=item_data['ingredient_id'],
+                quantity=item_data['quantity'],
+                unit_price=item_data['unit_price'],
+                unit_of_measure=item_data.get('unit_of_measure', ingredient.unit_of_measure)
+            )
+            db.session.add(order_item)
+            total_amount += order_item.unit_price * order_item.quantity
+        
+        # 更新订单总金额
+        order.total_amount = total_amount
+        
+        db.session.commit()
+        return jsonify({
+            'id': order.id,
+            'order_number': order.order_number,
+            'supplier_id': order.supplier_id,
+            'supplier_name': supplier.name,
+            'order_date': order.order_date.strftime('%Y-%m-%d'),
+            'expected_delivery_date': order.expected_delivery_date.strftime('%Y-%m-%d') if order.expected_delivery_date else None,
+            'status': order.status,
+            'total_amount': order.total_amount
+        }), 201
+    except Exception as e:
+        db.session.rollback()
+        return handle_error(e)
+
+@api.route('/purchase_orders/<int:order_id>', methods=['GET'])
+@requires_resource_permission('purchase_order', 'read')
+def get_purchase_order_detail(order_id):
+    """获取采购订单详情"""
+    order = PurchaseOrder.query.get(order_id)
+    if not order:
+        return jsonify({'error': 'Purchase order not found'}), 404
+    
+    # 获取采购订单详情
+    order_items = PurchaseOrderItem.query.filter_by(order_id=order_id).all()
+    items = [{
+        'id': item.id,
+        'ingredient_id': item.ingredient_id,
+        'ingredient_name': item.ingredient.name,
+        'quantity': item.quantity,
+        'unit_price': item.unit_price,
+        'unit_of_measure': item.unit_of_measure,
+        'subtotal': item.unit_price * item.quantity
+    } for item in order_items]
+    
+    return jsonify({
+        'id': order.id,
+        'order_number': order.order_number,
+        'supplier_id': order.supplier_id,
+        'supplier_name': order.supplier.name if order.supplier else None,
+        'order_date': order.order_date.strftime('%Y-%m-%d'),
+        'expected_delivery_date': order.expected_delivery_date.strftime('%Y-%m-%d') if order.expected_delivery_date else None,
+        'status': order.status,
+        'total_amount': order.total_amount,
+        'items': items
+    })
+
+# 库存交易API
+@api.route('/inventory_transactions', methods=['GET'])
+@requires_resource_permission('inventory', 'read')
+def get_inventory_transactions():
+    """获取所有库存交易"""
+    transactions = InventoryTransaction.query.order_by(InventoryTransaction.transaction_date.desc()).all()
+    return jsonify([{
+        'id': transaction.id,
+        'transaction_type': transaction.transaction_type,
+        'ingredient_id': transaction.ingredient_id,
+        'ingredient_name': transaction.ingredient.name if transaction.ingredient else None,
+        'quantity': transaction.quantity,
+        'unit_of_measure': transaction.unit_of_measure,
+        'transaction_date': transaction.transaction_date.strftime('%Y-%m-%d %H:%M:%S'),
+        'reference_id': transaction.reference_id,
+        'reference_type': transaction.reference_type,
+        'notes': transaction.notes
+    } for transaction in transactions])
+
+@api.route('/inventory_transactions', methods=['POST'])
+@requires_resource_permission('inventory', 'create')
+def create_inventory_transaction():
+    """创建新库存交易"""
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    # 验证数据
+    required_fields = ['transaction_type', 'ingredient_id', 'quantity']
+    is_valid, error = validate_data(data, required_fields)
+    if not is_valid:
+        return jsonify(error), 400
+    
+    # 检查食材是否存在
+    ingredient = Ingredient.query.get(data['ingredient_id'])
+    if not ingredient:
+        return jsonify({'error': 'Ingredient not found'}), 404
+    
+    # 创建库存交易
+    transaction = InventoryTransaction(
+        transaction_type=data['transaction_type'],
+        ingredient_id=data['ingredient_id'],
+        quantity=data['quantity'],
+        unit_of_measure=data.get('unit_of_measure', ingredient.unit_of_measure),
+        transaction_date=data.get('transaction_date', datetime.now()),
+        reference_id=data.get('reference_id'),
+        reference_type=data.get('reference_type'),
+        notes=data.get('notes')
+    )
+    
+    try:
+        # 更新食材库存
+        if data['transaction_type'] == 'in':
+            ingredient.current_stock += data['quantity']
+        elif data['transaction_type'] == 'out':
+            if ingredient.current_stock < data['quantity']:
+                return jsonify({'error': 'Insufficient stock'}), 400
+            ingredient.current_stock -= data['quantity']
+        
+        db.session.add(transaction)
+        db.session.commit()
+        return jsonify({
+            'id': transaction.id,
+            'transaction_type': transaction.transaction_type,
+            'ingredient_id': transaction.ingredient_id,
+            'ingredient_name': ingredient.name,
+            'quantity': transaction.quantity,
+            'unit_of_measure': transaction.unit_of_measure,
+            'transaction_date': transaction.transaction_date.strftime('%Y-%m-%d %H:%M:%S'),
+            'reference_id': transaction.reference_id,
+            'reference_type': transaction.reference_type,
+            'notes': transaction.notes,
+            'new_stock_level': float(ingredient.current_stock)
+        }), 201
+    except Exception as e:
+        db.session.rollback()
+        return handle_error(e)
+
 # 菜品食材关联API
 @api.route('/dishes/<int:dish_id>/ingredients', methods=['GET'])
 def get_dish_ingredients(dish_id):
@@ -1491,8 +2574,8 @@ def get_dish_ingredients(dish_id):
         'id': di.id,
         'ingredient_id': di.ingredient_id,
         'ingredient_name': di.ingredient.name,
-        'quantity': di.quantity,
-        'unit': di.unit
+        'quantity_required': di.quantity_required,
+        'unit_of_measure': di.unit_of_measure
     } for di in dish_ingredients])
 
 @api.route('/dishes/<int:dish_id>/ingredients', methods=['POST'])
@@ -1508,7 +2591,7 @@ def add_dish_ingredient(dish_id):
         return jsonify({'error': 'No data provided'}), 400
     
     # 验证数据
-    required_fields = ['ingredient_id', 'quantity']
+    required_fields = ['ingredient_id', 'quantity_required']
     is_valid, error = validate_data(data, required_fields)
     if not is_valid:
         return jsonify(error), 400
@@ -1530,8 +2613,8 @@ def add_dish_ingredient(dish_id):
     dish_ingredient = DishIngredient(
         dish_id=dish_id,
         ingredient_id=data['ingredient_id'],
-        quantity=data['quantity'],
-        unit=data.get('unit', 'g')
+        quantity_required=data['quantity_required'],
+        unit_of_measure=data.get('unit_of_measure', 'g')
     )
     
     try:
@@ -1541,8 +2624,8 @@ def add_dish_ingredient(dish_id):
             'id': dish_ingredient.id,
             'ingredient_id': dish_ingredient.ingredient_id,
             'ingredient_name': ingredient.name,
-            'quantity': dish_ingredient.quantity,
-            'unit': dish_ingredient.unit
+            'quantity_required': dish_ingredient.quantity_required,
+            'unit_of_measure': dish_ingredient.unit_of_measure
         }), 201
     except Exception as e:
         db.session.rollback()
@@ -1803,6 +2886,138 @@ def add_meal_schedule_item(schedule_id):
         db.session.rollback()
         return handle_error(e)
 
+# 配送路线API
+@api.route('/delivery_routes', methods=['GET'])
+@requires_resource_permission('delivery', 'read')
+def get_delivery_routes():
+    """获取所有配送路线"""
+    routes = DeliveryRoute.query.all()
+    return jsonify([{
+        'id': route.id,
+        'route_name': route.route_name,
+        'description': route.description,
+        'estimated_duration_minutes': route.estimated_duration_minutes,
+        'status': route.status
+    } for route in routes])
+
+@api.route('/delivery_routes', methods=['POST'])
+@requires_resource_permission('delivery', 'create')
+def create_delivery_route():
+    """创建新配送路线"""
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    # 验证数据
+    required_fields = ['route_name']
+    is_valid, error = validate_data(data, required_fields)
+    if not is_valid:
+        return jsonify(error), 400
+    
+    # 检查配送路线是否已存在
+    existing_route = DeliveryRoute.query.filter_by(route_name=data['route_name']).first()
+    if existing_route:
+        return jsonify({'error': 'Delivery route already exists'}), 400
+    
+    # 创建配送路线
+    route = DeliveryRoute(
+        route_name=data['route_name'],
+        description=data.get('description'),
+        estimated_duration_minutes=data.get('estimated_duration_minutes', 0),
+        status=data.get('status', 'active')
+    )
+    
+    try:
+        db.session.add(route)
+        db.session.commit()
+        return jsonify({
+            'id': route.id,
+            'route_name': route.route_name,
+            'description': route.description,
+            'estimated_duration_minutes': route.estimated_duration_minutes,
+            'status': route.status
+        }), 201
+    except Exception as e:
+        db.session.rollback()
+        return handle_error(e)
+
+@api.route('/delivery_routes/<int:route_id>', methods=['GET'])
+@requires_resource_permission('delivery', 'read')
+def get_delivery_route_detail(route_id):
+    """获取配送路线详情"""
+    route = DeliveryRoute.query.get(route_id)
+    if not route:
+        return jsonify({'error': 'Delivery route not found'}), 404
+    
+    return jsonify({
+        'id': route.id,
+        'route_name': route.route_name,
+        'description': route.description,
+        'estimated_duration_minutes': route.estimated_duration_minutes,
+        'status': route.status
+    })
+
+# 配送状态更新API
+@api.route('/delivery_assignments/<int:assignment_id>/status', methods=['PUT'])
+@requires_resource_permission('delivery', 'update')
+def update_delivery_status(assignment_id):
+    """更新配送状态"""
+    assignment = DeliveryAssignment.query.get(assignment_id)
+    if not assignment:
+        return jsonify({'error': 'Delivery assignment not found'}), 404
+    
+    data = request.get_json()
+    if not data or 'status' not in data:
+        return jsonify({'error': 'Status is required'}), 400
+    
+    # 验证状态值
+    valid_statuses = ['scheduled', 'in_progress', 'delivered', 'failed']
+    if data['status'] not in valid_statuses:
+        return jsonify({'error': f'Invalid status. Valid statuses are: {valid_statuses}'}), 400
+    
+    # 更新配送状态
+    old_status = assignment.status
+    assignment.status = data['status']
+    
+    # 记录状态更新
+    status_update = DeliveryStatusUpdate(
+        assignment_id=assignment_id,
+        old_status=old_status,
+        new_status=data['status'],
+        timestamp=datetime.now(),
+        notes=data.get('notes')
+    )
+    
+    try:
+        db.session.add(status_update)
+        db.session.commit()
+        return jsonify({
+            'id': assignment.id,
+            'status': assignment.status,
+            'last_updated': status_update.timestamp.strftime('%Y-%m-%d %H:%M:%S')
+        })
+    except Exception as e:
+        db.session.rollback()
+        return handle_error(e)
+
+# 配送状态历史API
+@api.route('/delivery_assignments/<int:assignment_id>/status_history', methods=['GET'])
+@requires_resource_permission('delivery', 'read')
+def get_delivery_status_history(assignment_id):
+    """获取配送状态历史"""
+    assignment = DeliveryAssignment.query.get(assignment_id)
+    if not assignment:
+        return jsonify({'error': 'Delivery assignment not found'}), 404
+    
+    status_history = DeliveryStatusUpdate.query.filter_by(assignment_id=assignment_id).order_by(DeliveryStatusUpdate.timestamp.desc()).all()
+    return jsonify([{
+        'id': update.id,
+        'old_status': update.old_status,
+        'new_status': update.new_status,
+        'timestamp': update.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+        'notes': update.notes
+    } for update in status_history])
+
 # 服务管理API
 @api.route('/service_categories', methods=['GET'])
 def get_service_categories():
@@ -1882,13 +3097,12 @@ def update_service_category(category_id):
     if not is_valid:
         return jsonify(error), 400
     
-    # 检查服务分类名称是否已被其他分类使用
-    existing_category = ServiceCategory.query.filter_by(name=data['name']).filter(ServiceCategory.id != category_id).first()
-    if existing_category:
-        return jsonify({'error': 'Service category name already exists'}), 400
-    
     # 更新服务分类
     if 'name' in data:
+        # 检查服务分类名称是否已被其他分类使用
+        existing_category = ServiceCategory.query.filter_by(name=data['name']).filter(ServiceCategory.id != category_id).first()
+        if existing_category:
+            return jsonify({'error': 'Service category name already exists'}), 400
         category.name = data['name']
     if 'description' in data:
         category.description = data['description']
@@ -1899,6 +3113,413 @@ def update_service_category(category_id):
             'id': category.id,
             'name': category.name,
             'description': category.description
+        })
+    except Exception as e:
+        db.session.rollback()
+        return handle_error(e)
+
+
+
+# 服务项目API
+@api.route('/service_items', methods=['GET'])
+def get_service_items():
+    """获取所有服务项目"""
+    items = ServiceItem.query.all()
+    return jsonify([{
+        'id': item.id,
+        'name': item.name,
+        'description': item.description,
+        'price': item.price,
+        'duration_minutes': item.duration_minutes,
+        'category_id': item.category_id,
+        'category_name': item.category.name if item.category else None,
+        'is_active': item.is_active
+    } for item in items])
+
+@api.route('/service_items', methods=['POST'])
+@requires_resource_permission('service', 'create')
+def create_service_item():
+    """创建新服务项目"""
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    # 验证数据
+    required_fields = ['name', 'price', 'duration_minutes', 'category_id']
+    is_valid, error = validate_data(data, required_fields)
+    if not is_valid:
+        return jsonify(error), 400
+    
+    # 检查服务项目是否已存在
+    existing_item = ServiceItem.query.filter_by(name=data['name']).first()
+    if existing_item:
+        return jsonify({'error': 'Service item already exists'}), 400
+    
+    # 检查服务分类是否存在
+    category = ServiceCategory.query.get(data['category_id'])
+    if not category:
+        return jsonify({'error': 'Service category not found'}), 404
+    
+    # 创建服务项目
+    item = ServiceItem(
+        name=data['name'],
+        description=data.get('description'),
+        price=data['price'],
+        duration_minutes=data['duration_minutes'],
+        category_id=data['category_id'],
+        is_active=data.get('is_active', True)
+    )
+    
+    try:
+        db.session.add(item)
+        db.session.commit()
+        return jsonify({
+            'id': item.id,
+            'name': item.name,
+            'description': item.description,
+            'price': item.price,
+            'duration_minutes': item.duration_minutes,
+            'category_id': item.category_id,
+            'category_name': category.name,
+            'is_active': item.is_active
+        }), 201
+    except Exception as e:
+        db.session.rollback()
+        return handle_error(e)
+
+@api.route('/service_items/<int:item_id>', methods=['GET'])
+def get_service_item_detail(item_id):
+    """获取服务项目详情"""
+    item = ServiceItem.query.get(item_id)
+    if not item:
+        return jsonify({'error': 'Service item not found'}), 404
+    
+    return jsonify({
+        'id': item.id,
+        'name': item.name,
+        'description': item.description,
+        'price': item.price,
+        'duration_minutes': item.duration_minutes,
+        'category_id': item.category_id,
+        'category_name': item.category.name if item.category else None,
+        'is_active': item.is_active
+    })
+
+@api.route('/service_items/<int:item_id>', methods=['PUT'])
+@requires_resource_permission('service', 'update')
+def update_service_item(item_id):
+    """更新服务项目"""
+    item = ServiceItem.query.get(item_id)
+    if not item:
+        return jsonify({'error': 'Service item not found'}), 404
+    
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    # 验证数据
+    if 'name' in data:
+        # 检查服务项目名称是否已被其他项目使用
+        existing_item = ServiceItem.query.filter_by(name=data['name']).filter(ServiceItem.id != item_id).first()
+        if existing_item:
+            return jsonify({'error': 'Service item name already exists'}), 400
+        item.name = data['name']
+    
+    # 更新其他字段
+    if 'description' in data:
+        item.description = data['description']
+    if 'price' in data:
+        item.price = data['price']
+    if 'duration_minutes' in data:
+        item.duration_minutes = data['duration_minutes']
+    if 'category_id' in data:
+        # 检查服务分类是否存在
+        category = ServiceCategory.query.get(data['category_id'])
+        if not category:
+            return jsonify({'error': 'Service category not found'}), 404
+        item.category_id = data['category_id']
+    if 'is_active' in data:
+        item.is_active = data['is_active']
+    
+    try:
+        db.session.commit()
+        return jsonify({
+            'id': item.id,
+            'name': item.name,
+            'description': item.description,
+            'price': item.price,
+            'duration_minutes': item.duration_minutes,
+            'category_id': item.category_id,
+            'category_name': item.category.name if item.category else None,
+            'is_active': item.is_active
+        })
+    except Exception as e:
+        db.session.rollback()
+        return handle_error(e)
+
+
+
+# 服务套餐API
+@api.route('/service_packages', methods=['GET'])
+def get_service_packages():
+    """获取所有服务套餐"""
+    packages = ServicePackage.query.all()
+    return jsonify([{
+        'id': package.id,
+        'name': package.name,
+        'description': package.description,
+        'price': package.price,
+        'is_active': package.is_active
+    } for package in packages])
+
+@api.route('/service_packages', methods=['POST'])
+@requires_resource_permission('service', 'create')
+def create_service_package():
+    """创建新服务套餐"""
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    # 验证数据
+    required_fields = ['name', 'price', 'items']
+    is_valid, error = validate_data(data, required_fields)
+    if not is_valid:
+        return jsonify(error), 400
+    
+    # 检查服务套餐是否已存在
+    existing_package = ServicePackage.query.filter_by(name=data['name']).first()
+    if existing_package:
+        return jsonify({'error': 'Service package already exists'}), 400
+    
+    # 创建服务套餐
+    package = ServicePackage(
+        name=data['name'],
+        description=data.get('description'),
+        price=data['price'],
+        is_active=data.get('is_active', True)
+    )
+    
+    try:
+        db.session.add(package)
+        db.session.flush()  # 获取package.id
+        
+        # 添加服务套餐项目
+        for item_data in data['items']:
+            # 验证套餐项目数据
+            item_required_fields = ['service_item_id', 'quantity']
+            item_is_valid, item_error = validate_data(item_data, item_required_fields)
+            if not item_is_valid:
+                return jsonify(item_error), 400
+            
+            # 检查服务项目是否存在
+            service_item = ServiceItem.query.get(item_data['service_item_id'])
+            if not service_item:
+                return jsonify({'error': f'Service item {item_data["service_item_id"]} not found'}), 404
+            
+            # 创建服务套餐项目
+            package_item = ServicePackageItem(
+                package_id=package.id,
+                service_item_id=item_data['service_item_id'],
+                quantity=item_data['quantity']
+            )
+            db.session.add(package_item)
+        
+        db.session.commit()
+        return jsonify({
+            'id': package.id,
+            'name': package.name,
+            'description': package.description,
+            'price': package.price,
+            'is_active': package.is_active
+        }), 201
+    except Exception as e:
+        db.session.rollback()
+        return handle_error(e)
+
+@api.route('/service_packages/<int:package_id>', methods=['GET'])
+def get_service_package_detail(package_id):
+    """获取服务套餐详情"""
+    package = ServicePackage.query.get(package_id)
+    if not package:
+        return jsonify({'error': 'Service package not found'}), 404
+    
+    # 获取服务套餐项目
+    package_items = ServicePackageItem.query.filter_by(package_id=package_id).all()
+    items = [{
+        'id': pi.id,
+        'service_item_id': pi.service_item_id,
+        'service_item_name': pi.service_item.name,
+        'quantity': pi.quantity,
+        'item_price': pi.service_item.price,
+        'subtotal': pi.service_item.price * pi.quantity
+    } for pi in package_items]
+    
+    return jsonify({
+        'id': package.id,
+        'name': package.name,
+        'description': package.description,
+        'price': package.price,
+        'is_active': package.is_active,
+        'items': items
+    })
+
+# 服务预订API
+@api.route('/service_bookings', methods=['GET'])
+@requires_resource_permission('service', 'read')
+def get_service_bookings():
+    """获取所有服务预订"""
+    bookings = ServiceBooking.query.order_by(ServiceBooking.booking_date.desc()).all()
+    return jsonify([{
+        'id': booking.id,
+        'booking_number': booking.booking_number,
+        'customer_id': booking.customer_id,
+        'customer_name': booking.customer.name if booking.customer else None,
+        'service_item_id': booking.service_item_id,
+        'service_item_name': booking.service_item.name if booking.service_item else None,
+        'booking_date': booking.booking_date.strftime('%Y-%m-%d'),
+        'start_time': booking.start_time.strftime('%H:%M') if booking.start_time else None,
+        'duration_minutes': booking.duration_minutes,
+        'status': booking.status,
+        'price': booking.price
+    } for booking in bookings])
+
+@api.route('/service_bookings', methods=['POST'])
+@requires_resource_permission('service', 'create')
+def create_service_booking():
+    """创建新服务预订"""
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    # 验证数据
+    required_fields = ['customer_id', 'service_item_id', 'booking_date', 'start_time']
+    is_valid, error = validate_data(data, required_fields)
+    if not is_valid:
+        return jsonify(error), 400
+    
+    # 检查客户是否存在
+    customer = Customer.query.get(data['customer_id'])
+    if not customer:
+        return jsonify({'error': 'Customer not found'}), 404
+    
+    # 检查服务项目是否存在
+    service_item = ServiceItem.query.get(data['service_item_id'])
+    if not service_item:
+        return jsonify({'error': 'Service item not found'}), 404
+    
+    # 生成预订号
+    import uuid
+    booking_number = f'SB_{uuid.uuid4().hex[:8].upper()}_{datetime.now().strftime("%Y%m%d")}'
+    
+    # 创建服务预订
+    booking = ServiceBooking(
+        booking_number=booking_number,
+        customer_id=data['customer_id'],
+        service_item_id=data['service_item_id'],
+        booking_date=datetime.strptime(data['booking_date'], '%Y-%m-%d').date(),
+        start_time=datetime.strptime(data['start_time'], '%H:%M').time(),
+        duration_minutes=data.get('duration_minutes', service_item.duration_minutes),
+        status=data.get('status', 'confirmed'),
+        price=data.get('price', service_item.price),
+        notes=data.get('notes')
+    )
+    
+    try:
+        db.session.add(booking)
+        db.session.commit()
+        return jsonify({
+            'id': booking.id,
+            'booking_number': booking.booking_number,
+            'customer_id': booking.customer_id,
+            'customer_name': customer.name,
+            'service_item_id': booking.service_item_id,
+            'service_item_name': service_item.name,
+            'booking_date': booking.booking_date.strftime('%Y-%m-%d'),
+            'start_time': booking.start_time.strftime('%H:%M'),
+            'duration_minutes': booking.duration_minutes,
+            'status': booking.status,
+            'price': booking.price
+        }), 201
+    except Exception as e:
+        db.session.rollback()
+        return handle_error(e)
+
+@api.route('/service_bookings/<int:booking_id>', methods=['GET'])
+@requires_resource_permission('service', 'read')
+def get_service_booking_detail(booking_id):
+    """获取服务预订详情"""
+    booking = ServiceBooking.query.get(booking_id)
+    if not booking:
+        return jsonify({'error': 'Service booking not found'}), 404
+    
+    return jsonify({
+        'id': booking.id,
+        'booking_number': booking.booking_number,
+        'customer_id': booking.customer_id,
+        'customer_name': booking.customer.name if booking.customer else None,
+        'service_item_id': booking.service_item_id,
+        'service_item_name': booking.service_item.name if booking.service_item else None,
+        'booking_date': booking.booking_date.strftime('%Y-%m-%d'),
+        'start_time': booking.start_time.strftime('%H:%M') if booking.start_time else None,
+        'duration_minutes': booking.duration_minutes,
+        'status': booking.status,
+        'price': booking.price,
+        'notes': booking.notes
+    })
+
+@api.route('/service_bookings/<int:booking_id>', methods=['PUT'])
+@requires_resource_permission('service', 'update')
+def update_service_booking(booking_id):
+    """更新服务预订"""
+    booking = ServiceBooking.query.get(booking_id)
+    if not booking:
+        return jsonify({'error': 'Service booking not found'}), 404
+    
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    # 更新服务预订信息
+    if 'customer_id' in data:
+        # 检查客户是否存在
+        customer = Customer.query.get(data['customer_id'])
+        if not customer:
+            return jsonify({'error': 'Customer not found'}), 404
+        booking.customer_id = data['customer_id']
+    if 'service_item_id' in data:
+        # 检查服务项目是否存在
+        service_item = ServiceItem.query.get(data['service_item_id'])
+        if not service_item:
+            return jsonify({'error': 'Service item not found'}), 404
+        booking.service_item_id = data['service_item_id']
+    if 'booking_date' in data:
+        booking.booking_date = datetime.strptime(data['booking_date'], '%Y-%m-%d').date()
+    if 'start_time' in data:
+        booking.start_time = datetime.strptime(data['start_time'], '%H:%M').time()
+    if 'duration_minutes' in data:
+        booking.duration_minutes = data['duration_minutes']
+    if 'status' in data:
+        booking.status = data['status']
+    if 'price' in data:
+        booking.price = data['price']
+    if 'notes' in data:
+        booking.notes = data['notes']
+    
+    try:
+        db.session.commit()
+        return jsonify({
+            'id': booking.id,
+            'booking_number': booking.booking_number,
+            'customer_id': booking.customer_id,
+            'customer_name': booking.customer.name if booking.customer else None,
+            'service_item_id': booking.service_item_id,
+            'service_item_name': booking.service_item.name if booking.service_item else None,
+            'booking_date': booking.booking_date.strftime('%Y-%m-%d'),
+            'start_time': booking.start_time.strftime('%H:%M') if booking.start_time else None,
+            'duration_minutes': booking.duration_minutes,
+            'status': booking.status,
+            'price': booking.price,
+            'notes': booking.notes
         })
     except Exception as e:
         db.session.rollback()
@@ -1925,120 +3546,13 @@ def delete_service_category(category_id):
         db.session.rollback()
         return handle_error(e)
 
-@api.route('/service_items', methods=['GET'])
-def get_service_items():
-    """获取所有服务项目"""
-    items = ServiceItem.query.all()
-    return jsonify([{
-        'id': item.id,
-        'name': item.name,
-        'description': item.description,
-        'category_id': item.category_id,
-        'category_name': item.category.name if item.category else None,
-        'duration_minutes': item.duration_minutes,
-        'price': item.price
-    } for item in items])
 
-@api.route('/service_items', methods=['POST'])
-@requires_resource_permission('service', 'create')
-def create_service_item():
-    """创建新服务项目"""
-    data = request.get_json()
-    if not data:
-        return jsonify({'error': 'No data provided'}), 400
-    
-    # 验证数据
-    required_fields = ['name']
-    is_valid, error = validate_data(data, required_fields)
-    if not is_valid:
-        return jsonify(error), 400
-    
-    # 创建服务项目
-    item = ServiceItem(
-        name=data['name'],
-        description=data.get('description'),
-        category_id=data.get('category_id'),
-        duration_minutes=data.get('duration_minutes'),
-        price=data.get('price', 0)
-    )
-    
-    try:
-        db.session.add(item)
-        db.session.commit()
-        return jsonify({
-            'id': item.id,
-            'name': item.name,
-            'description': item.description,
-            'category_id': item.category_id,
-            'category_name': item.category.name if item.category else None,
-            'duration_minutes': item.duration_minutes,
-            'price': item.price
-        }), 201
-    except Exception as e:
-        db.session.rollback()
-        return handle_error(e)
 
-@api.route('/service_items/<int:item_id>', methods=['GET'])
-def get_service_item_detail(item_id):
-    """获取服务项目详情"""
-    item = ServiceItem.query.get(item_id)
-    if not item:
-        return jsonify({'error': 'Service item not found'}), 404
-    
-    return jsonify({
-        'id': item.id,
-        'name': item.name,
-        'description': item.description,
-        'category_id': item.category_id,
-        'category_name': item.category.name if item.category else None,
-        'duration_minutes': item.duration_minutes,
-        'price': item.price
-    })
 
-@api.route('/service_items/<int:item_id>', methods=['PUT'])
-@requires_resource_permission('service', 'update')
-def update_service_item(item_id):
-    """更新服务项目"""
-    item = ServiceItem.query.get(item_id)
-    if not item:
-        return jsonify({'error': 'Service item not found'}), 404
-    
-    data = request.get_json()
-    if not data:
-        return jsonify({'error': 'No data provided'}), 400
-    
-    # 验证数据
-    required_fields = ['name']
-    is_valid, error = validate_data(data, required_fields)
-    if not is_valid:
-        return jsonify(error), 400
-    
-    # 更新服务项目
-    if 'name' in data:
-        item.name = data['name']
-    if 'description' in data:
-        item.description = data['description']
-    if 'category_id' in data:
-        item.category_id = data['category_id']
-    if 'duration_minutes' in data:
-        item.duration_minutes = data['duration_minutes']
-    if 'price' in data:
-        item.price = data['price']
-    
-    try:
-        db.session.commit()
-        return jsonify({
-            'id': item.id,
-            'name': item.name,
-            'description': item.description,
-            'category_id': item.category_id,
-            'category_name': item.category.name if item.category else None,
-            'duration_minutes': item.duration_minutes,
-            'price': item.price
-        })
-    except Exception as e:
-        db.session.rollback()
-        return handle_error(e)
+
+
+
+
 
 @api.route('/service_items/<int:item_id>', methods=['DELETE'])
 @requires_resource_permission('service', 'delete')
@@ -2361,49 +3875,7 @@ def get_suppliers():
         'created_at': supplier.created_at.strftime('%Y-%m-%d %H:%M:%S')
     } for supplier in suppliers])
 
-@api.route('/suppliers', methods=['POST'])
-@requires_resource_permission('supplier', 'create')
-def create_supplier():
-    """创建新供应商"""
-    data = request.get_json()
-    if not data:
-        return jsonify({'error': 'No data provided'}), 400
-    
-    # 验证数据
-    required_fields = ['name']
-    is_valid, error = validate_data(data, required_fields)
-    if not is_valid:
-        return jsonify(error), 400
-    
-    # 检查供应商是否已存在
-    existing_supplier = Supplier.query.filter_by(name=data['name']).first()
-    if existing_supplier:
-        return jsonify({'error': 'Supplier already exists'}), 400
-    
-    # 创建供应商
-    supplier = Supplier(
-        name=data['name'],
-        contact_person=data.get('contact_person'),
-        phone=data.get('phone'),
-        address=data.get('address'),
-        description=data.get('description')
-    )
-    
-    try:
-        db.session.add(supplier)
-        db.session.commit()
-        return jsonify({
-            'id': supplier.id,
-            'name': supplier.name,
-            'contact_person': supplier.contact_person,
-            'phone': supplier.phone,
-            'address': supplier.address,
-            'description': supplier.description,
-            'created_at': supplier.created_at.strftime('%Y-%m-%d %H:%M:%S')
-        }), 201
-    except Exception as e:
-        db.session.rollback()
-        return handle_error(e)
+
 
 # 食材采购API
 @api.route('/ingredient_purchases', methods=['GET'])

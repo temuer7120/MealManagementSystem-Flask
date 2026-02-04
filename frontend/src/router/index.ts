@@ -1,4 +1,8 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
+
+
+
+import { hasRoutePermission } from '../utils/permissions'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -70,6 +74,43 @@ const router = createRouter({
       component: () => import('../views/system/System.vue')
     }
   ]
+})
+
+// 添加路由守卫以检查权限
+router.beforeEach((to, from, next) => {
+  const token = localStorage.getItem('token')
+  const userStr = localStorage.getItem('user')
+  const user = userStr ? JSON.parse(userStr) : null
+  const role = user ? user.role : null
+  
+  // 未登录用户重定向到登录页
+  if (!token && to.path !== '/login') {
+    next('/login')
+    return
+  }
+  
+  // 登录页不需要权限检查
+  if (to.path === '/login') {
+    next()
+    return
+  }
+  
+  // 检查用户是否有权限访问该路由
+  if (to.name && !hasRoutePermission(role, to.name)) {
+    next('/dashboard')
+    return
+  }
+  
+  // 检查子路由权限
+  if (to.matched.length > 1) {
+    const childRoute = to.matched[to.matched.length - 1]
+    if (childRoute.name && !hasRoutePermission(role, childRoute.name)) {
+      next('/dashboard')
+      return
+    }
+  }
+  
+  next()
 })
 
 export default router

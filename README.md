@@ -187,7 +187,7 @@ python app.py
 ## 运行环境
 
 - Python 3.7+
-- SQLite（默认）/ MySQL/PostgreSQL（推荐生产环境）
+- MySQL/PostgreSQL（推荐生产环境）
 - Flask 2.0+
 
 ## 部署说明

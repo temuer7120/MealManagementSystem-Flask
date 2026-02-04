@@ -36,7 +36,7 @@
                               <span class="duration">{{ item.duration_minutes }}分钟</span>
                               <span class="price">¥{{ item.price }}</span>
                             </div>
-                          </template>
+                          </div>
                           <template #suffix>
                             <el-button type="primary" size="small" @click="bookService(item)">
                               预约

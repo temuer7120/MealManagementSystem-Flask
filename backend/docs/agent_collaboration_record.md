@@ -22,7 +22,7 @@
 
 **BackendArchitect智能体**：负责分析系统当前架构，评估系统的优缺点，识别需要改进的地方。BackendArchitect智能体与DatabaseOptimizer智能体和SecurityExpert智能体紧密合作，分析数据库设计和安全架构。
 
-**DatabaseOptimizer智能体**：负责评估数据库设计，分析SQLite的性能瓶颈，提出数据库优化建议。DatabaseOptimizer智能体与BackendArchitect智能体合作，分析数据库模型和表结构设计。
+**DatabaseOptimizer智能体**：负责评估数据库设计，分析数据库性能瓶颈，提出数据库优化建议。DatabaseOptimizer智能体与BackendArchitect智能体合作，分析数据库模型和表结构设计。
 
 **SecurityExpert智能体**：负责评估系统安全性，识别安全隐患，如JWT密钥硬编码、缺少token刷新机制等。SecurityExpert智能体与BackendArchitect智能体合作，分析权限管理系统的实现。
 
@@ -80,7 +80,7 @@
 
 ### BackendArchitect智能体
 
-1. **系统架构分析**：分析当前Flask+SQLite+JWT架构，评估其优缺点
+1. **系统架构分析**：分析当前Flask+MySQL+JWT架构，评估其优缺点
 2. **API设计评估**：评估RESTful API设计，提出改进建议
 3. **数据库模型分析**：分析数据库模型和表结构设计
 4. **改进计划制定**：制定整体改进计划，包括架构优化、数据库优化等
@@ -100,7 +100,7 @@
 
 ### DatabaseOptimizer智能体
 
-1. **数据库评估**：评估SQLite的性能瓶颈，提出数据库优化建议
+1. **数据库评估**：评估数据库性能瓶颈，提出数据库优化建议
 2. **数据库迁移**：提出Alembic数据库迁移的实施方案
 3. **索引优化**：分析数据库索引使用情况，提出索引优化建议
 4. **数据备份**：提出自动数据备份和恢复机制的实施方案
