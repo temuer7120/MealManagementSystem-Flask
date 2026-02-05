@@ -65,13 +65,19 @@ export const getCurrentTheme = () => {
 
 // 应用主题到DOM
 export const applyTheme = (theme) => {
+  console.log('开始应用主题:', theme);
+  
   // 设置CSS变量
   document.documentElement.style.setProperty('--primary-color', theme.primary);
+  console.log('CSS变量设置完成:', theme.primary);
   
   // 更新导航栏背景色
   const navbar = document.querySelector('.navbar');
   if (navbar) {
     navbar.style.backgroundColor = theme.primary;
+    console.log('导航栏背景色更新完成');
+  } else {
+    console.log('未找到导航栏元素');
   }
   
   // 更新按钮颜色
@@ -80,24 +86,28 @@ export const applyTheme = (theme) => {
     button.style.backgroundColor = theme.primary;
     button.style.borderColor = theme.primary;
   });
+  console.log('按钮颜色更新完成:', buttons.length, '个按钮');
   
   // 更新卡片头部颜色
   const cardHeaders = document.querySelectorAll('.card-header');
   cardHeaders.forEach(header => {
     header.style.backgroundColor = theme.primary;
   });
+  console.log('卡片头部颜色更新完成:', cardHeaders.length, '个卡片');
   
   // 更新页面标题颜色
   const pageTitles = document.querySelectorAll('.page-title');
   pageTitles.forEach(title => {
     title.style.color = theme.primary;
   });
+  console.log('页面标题颜色更新完成:', pageTitles.length, '个标题');
   
   // 更新链接颜色
   const links = document.querySelectorAll('.btn-link');
   links.forEach(link => {
     link.style.color = theme.primary;
   });
+  console.log('链接颜色更新完成:', links.length, '个链接');
   
   // 更新输入框聚焦颜色
   const style = document.createElement('style');
@@ -108,6 +118,9 @@ export const applyTheme = (theme) => {
     }
   `;
   document.head.appendChild(style);
+  console.log('输入框聚焦颜色更新完成');
+  
+  console.log('主题应用完成');
 };
 
 // 辅助函数：将十六进制颜色转换为RGB

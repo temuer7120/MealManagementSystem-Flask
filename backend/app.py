@@ -32,7 +32,7 @@ def create_app():
     # 初始化CORS
     from extensions import cors
     # 安全的CORS配置，只允许特定来源
-    cors_origins = os.getenv('CORS_ORIGINS', 'http://localhost:3000,http://127.0.0.1:3000').split(',')
+    cors_origins = os.getenv('CORS_ORIGINS', 'http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001').split(',')
     cors.init_app(app, resources={r"/api/*": {"origins": cors_origins}})
     
     # 初始化缓存

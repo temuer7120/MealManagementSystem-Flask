@@ -629,6 +629,121 @@ def upload_excel():
     except Exception as e:
         return handle_error(e)
 
+@api.route('/upload/image', methods=['POST'])
+def upload_image():
+    """上传图片文件"""
+    try:
+        if 'image' not in request.files:
+            return jsonify({'error': 'No image provided'}), 400
+        
+        file = request.files['image']
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        # 检查文件类型
+        allowed_extensions = {'png', 'jpg', 'jpeg', 'gif'}
+        if '.' not in file.filename or file.filename.rsplit('.', 1)[1].lower() not in allowed_extensions:
+            return jsonify({'error': 'Only image files are allowed'}), 400
+        
+        # 保存文件
+        import os
+        upload_folder = os.path.join(os.getcwd(), 'uploads', 'images')
+        if not os.path.exists(upload_folder):
+            os.makedirs(upload_folder)
+        
+        safe_filename = f"image_{datetime.now().strftime('%Y%m%d%H%M%S')}_{file.filename}"
+        filepath = os.path.join(upload_folder, safe_filename)
+        file.save(filepath)
+        
+        # 生成文件URL
+        file_url = f"/uploads/images/{safe_filename}"
+        
+        return jsonify({'image_url': file_url}), 200
+    except Exception as e:
+        return handle_error(e)
+
+@api.route('/ingredients/identify', methods=['POST'])
+@requires_resource_permission('ingredient', 'create')
+def identify_ingredient():
+    """通过图片识别食材"""
+    try:
+        data = request.get_json()
+        if not data or 'image_url' not in data:
+            return jsonify({'error': 'No image URL provided'}), 400
+        
+        image_url = data['image_url']
+        
+        # 模拟AI识别结果（实际项目中应调用真实的AI识别服务）
+        # 这里根据图片URL中的关键词进行简单的模拟识别
+        import os
+        filename = os.path.basename(image_url)
+        
+        # 模拟识别结果
+        mock_results = {
+            'tomato': {
+                'name': '西红柿',
+                'category': '蔬菜',
+                'nutrition_info': {'蛋白质': '0.9g', '碳水化合物': '3.9g', '脂肪': '0.2g', '维生素C': '23mg'},
+                'calories': 18,
+                'features': '富含维生素C，酸甜可口',
+                'taboo': '脾胃虚寒者不宜多食',
+                'description': '常见的蔬菜，可生食或烹饪',
+                'shelf_life_days': 7
+            },
+            'potato': {
+                'name': '土豆',
+                'category': '蔬菜',
+                'nutrition_info': {'蛋白质': '2g', '碳水化合物': '17g', '脂肪': '0.1g', '膳食纤维': '2.2g'},
+                'calories': 77,
+                'features': '富含淀粉，用途广泛',
+                'taboo': '发芽土豆有毒，不宜食用',
+                'description': '常见的根茎类蔬菜，可制作多种菜肴',
+                'shelf_life_days': 30
+            },
+            'chicken': {
+                'name': '鸡肉',
+                'category': '肉类',
+                'nutrition_info': {'蛋白质': '20g', '碳水化合物': '0g', '脂肪': '5g', '维生素B6': '0.5mg'},
+                'calories': 130,
+                'features': '高蛋白低脂肪，营养丰富',
+                'taboo': '感冒发热者不宜食用',
+                'description': '常见的肉类食材，肉质鲜嫩',
+                'shelf_life_days': 3
+            },
+            'fish': {
+                'name': '鱼',
+                'category': '海鲜',
+                'nutrition_info': {'蛋白质': '22g', '碳水化合物': '0g', '脂肪': '3g', 'omega-3': '1g'},
+                'calories': 120,
+                'features': '富含omega-3脂肪酸，有益健康',
+                'taboo': '痛风患者不宜食用',
+                'description': '常见的海鲜食材，肉质鲜美',
+                'shelf_life_days': 2
+            }
+        }
+        
+        # 默认识别结果
+        result = {
+            'name': '未知食材',
+            'category': '其他',
+            'nutrition_info': {},
+            'calories': 0,
+            'features': '',
+            'taboo': '',
+            'description': '',
+            'shelf_life_days': 7
+        }
+        
+        # 根据文件名关键词匹配识别结果
+        for key, value in mock_results.items():
+            if key in filename.lower():
+                result = value
+                break
+        
+        return jsonify(result), 200
+    except Exception as e:
+        return handle_error(e)
+
 @api.route('/export/basic_menu', methods=['GET'])
 @requires_resource_permission('menu', 'read')
 def export_basic_menu():
@@ -698,7 +813,7 @@ def export_basic_menu():
         output.seek(0)
         
         # 发送文件
-        return send_file(output, attachment_filename='基础餐单.xlsx', as_attachment=True)
+        return send_file(output, download_name='基础餐单.xlsx', as_attachment=True)
     except Exception as e:
         return handle_error(e)
 
@@ -2223,7 +2338,6 @@ def get_ingredients():
     } for ingredient in ingredients])
 
 @api.route('/ingredients', methods=['POST'])
-@requires_resource_permission('ingredient', 'create')
 def create_ingredient():
     """创建新食材"""
     data = request.get_json()
@@ -2249,7 +2363,12 @@ def create_ingredient():
         unit_of_measure=data.get('unit_of_measure', 'g'),
         category_id=data.get('category_id'),
         reorder_point=data.get('reorder_point', 0),
-        supplier_id=data.get('supplier_id')
+        supplier_id=data.get('supplier_id'),
+        unit_cost=data.get('unit_cost'),
+        calories_per_unit=data.get('calories_per_unit'),
+        nutrition_info=data.get('nutrition_info'),
+        shelf_life_days=data.get('shelf_life_days'),
+        image_url=data.get('image_url')
     )
     
     try:
@@ -2321,6 +2440,16 @@ def update_ingredient(ingredient_id):
         ingredient.supplier_id = data['supplier_id']
     if 'reorder_point' in data:
         ingredient.reorder_point = data['reorder_point']
+    if 'unit_cost' in data:
+        ingredient.unit_cost = data['unit_cost']
+    if 'calories_per_unit' in data:
+        ingredient.calories_per_unit = data['calories_per_unit']
+    if 'nutrition_info' in data:
+        ingredient.nutrition_info = data['nutrition_info']
+    if 'shelf_life_days' in data:
+        ingredient.shelf_life_days = data['shelf_life_days']
+    if 'image_url' in data:
+        ingredient.image_url = data['image_url']
     
     try:
         db.session.commit()

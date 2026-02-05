@@ -17,20 +17,20 @@
           </li>
           
           <!-- 月子餐管理 -->
-          <li class="nav-item">
+          <li class="nav-item" v-if="hasMenuPermission('Menu')">
             <el-dropdown>
               <span class="nav-link dropdown-toggle">
                 <i class="fas fa-utensils"></i> 月子餐管理
               </span>
               <template #dropdown>
                 <el-dropdown-menu>
-                  <el-dropdown-item @click="navigateTo('/menu')">
+                  <el-dropdown-item @click="navigateTo('/menu')" v-if="hasMenuPermission('Menu')">
                     <i class="fas fa-utensils"></i> 菜单管理
                   </el-dropdown-item>
-                  <el-dropdown-item @click="navigateTo('/dish')">
+                  <el-dropdown-item @click="navigateTo('/dish')" v-if="hasMenuPermission('Dish')">
                     <i class="fas fa-drumstick-bite"></i> 菜品管理
                   </el-dropdown-item>
-                  <el-dropdown-item @click="navigateTo('/ingredient')">
+                  <el-dropdown-item @click="navigateTo('/ingredient')" v-if="hasMenuPermission('Ingredient')">
                     <i class="fas fa-seedling"></i> 食材管理
                   </el-dropdown-item>
                 </el-dropdown-menu>
@@ -39,17 +39,17 @@
           </li>
           
           <!-- 母婴服务 -->
-          <li class="nav-item">
+          <li class="nav-item" v-if="hasMenuPermission('Order') || hasMenuPermission('ServiceBooking')">
             <el-dropdown>
               <span class="nav-link dropdown-toggle">
                 <i class="fas fa-baby"></i> 母婴服务
               </span>
               <template #dropdown>
                 <el-dropdown-menu>
-                  <el-dropdown-item @click="navigateTo('/order')">
+                  <el-dropdown-item @click="navigateTo('/order')" v-if="hasMenuPermission('Order')">
                     <i class="fas fa-shopping-cart"></i> 订餐管理
                   </el-dropdown-item>
-                  <el-dropdown-item @click="navigateTo('/service-booking')">
+                  <el-dropdown-item @click="navigateTo('/service-booking')" v-if="hasMenuPermission('ServiceBooking')">
                     <i class="fas fa-calendar-check"></i> 服务预定
                   </el-dropdown-item>
                 </el-dropdown-menu>
@@ -58,23 +58,23 @@
           </li>
           
           <!-- 管理功能 -->
-          <li class="nav-item">
+          <li class="nav-item" v-if="hasMenuPermission('Customer') || hasMenuPermission('Employee') || hasMenuPermission('Finance') || hasMenuPermission('Report')">
             <el-dropdown>
               <span class="nav-link dropdown-toggle">
                 <i class="fas fa-cogs"></i> 管理功能
               </span>
               <template #dropdown>
                 <el-dropdown-menu>
-                  <el-dropdown-item @click="navigateTo('/customer')">
+                  <el-dropdown-item @click="navigateTo('/customer')" v-if="hasMenuPermission('Customer')">
                     <i class="fas fa-user-friends"></i> 客户管理
                   </el-dropdown-item>
-                  <el-dropdown-item @click="navigateTo('/employee')">
+                  <el-dropdown-item @click="navigateTo('/employee')" v-if="hasMenuPermission('Employee')">
                     <i class="fas fa-users"></i> 员工管理
                   </el-dropdown-item>
-                  <el-dropdown-item @click="navigateTo('/finance')">
+                  <el-dropdown-item @click="navigateTo('/finance')" v-if="hasMenuPermission('Finance')">
                     <i class="fas fa-money-bill-wave"></i> 财务管理
                   </el-dropdown-item>
-                  <el-dropdown-item @click="navigateTo('/report')">
+                  <el-dropdown-item @click="navigateTo('/report')" v-if="hasMenuPermission('Report')">
                     <i class="fas fa-file-invoice"></i> 报表打印
                   </el-dropdown-item>
                 </el-dropdown-menu>
@@ -105,6 +105,7 @@ import { ref, onMounted } from 'vue' // 若IDE仍报错，可尝试重启Volar�
 import { getCurrentInstance } from 'vue'
 
 import { hasRoutePermission } from '../utils/permissions'
+import { getCurrentTheme, applyTheme } from '../utils/theme'
 
 const { proxy } = getCurrentInstance()!
 const currentUser = ref<any>(null)
@@ -131,12 +132,16 @@ const handleLogout = () => {
   proxy?.$router.push('/')
 }
 
-// 初始化用户信息
+// 初始化用户信息和主题
 onMounted(() => {
   const userStr = localStorage.getItem('user')
   if (userStr) {
     currentUser.value = JSON.parse(userStr)
   }
+  
+  // 应用当前用户的主题
+  const theme = getCurrentTheme()
+  applyTheme(theme)
 })
 </script>
 

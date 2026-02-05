@@ -464,9 +464,11 @@ const handleLogin = async () => {
     axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`
     
     console.log('应用主题...')
+    console.log('用户角色:', user.role)
     const theme = getThemeByRole(user.role)
     console.log('主题:', theme)
     applyTheme(theme)
+    console.log('主题应用完成')
     
     console.log('显示成功消息...')
     showMessage('登录成功', 'success', 'login')
