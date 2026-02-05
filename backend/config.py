@@ -17,4 +17,8 @@ ALLOWED_EXTENSIONS = set(os.getenv('ALLOWED_EXTENSIONS', 'xlsx,xls').split(','))
 
 # 确保上传文件夹存在
 if not os.path.exists(UPLOAD_FOLDER):
+<<<<<<< HEAD
     os.makedirs(UPLOAD_FOLDER)
+=======
+    os.makedirs(UPLOAD_FOLDER)
+>>>>>>> ce8589de882afd4b0eb2eca2e03d66894318da84

@@ -1,4 +1,7 @@
+<<<<<<< HEAD
 
+=======
+>>>>>>> ce8589de882afd4b0eb2eca2e03d66894318da84
 # Dependency directories
 node_modules/
 .pnp
@@ -57,4 +60,8 @@ uploads/
 
 # Virtual environment
 .venv/
+<<<<<<< HEAD
 env/
+=======
+env/
+>>>>>>> ce8589de882afd4b0eb2eca2e03d66894318da84

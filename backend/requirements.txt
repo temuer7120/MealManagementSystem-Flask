@@ -11,4 +11,8 @@ pymysql==1.0.2
 mysql-connector-python==8.0.30
 redis==4.5.4
 prometheus-client==0.20.0
+<<<<<<< HEAD
 psutil==5.9.8
+=======
+psutil==5.9.8
+>>>>>>> ce8589de882afd4b0eb2eca2e03d66894318da84
