@@ -7,54 +7,54 @@ def update_all_users():
         # 更新或创建行政用户
         admin_staff = User.query.filter_by(username='admin_staff').first()
         if admin_staff:
-            admin_staff.set_password('admin')
+            admin_staff.set_password('admin123')
             admin_staff.role = 'admin_staff'
-            print('更新行政用户密码: admin_staff / admin')
+            print('更新行政用户密码: admin_staff / admin123')
         else:
             admin_staff = User(username='admin_staff')
-            admin_staff.set_password('admin')
+            admin_staff.set_password('admin123')
             admin_staff.role = 'admin_staff'
             db.session.add(admin_staff)
-            print('创建行政用户: admin_staff / admin')
+            print('创建行政用户: admin_staff / admin123')
         
         # 更新或创建护士长用户
         head_nurse = User.query.filter_by(username='head_nurse').first()
         if head_nurse:
-            head_nurse.set_password('nurse')
+            head_nurse.set_password('nurse123')
             head_nurse.role = 'head_nurse'
-            print('更新护士长用户密码: head_nurse / nurse')
+            print('更新护士长用户密码: head_nurse / nurse123')
         else:
             head_nurse = User(username='head_nurse')
-            head_nurse.set_password('nurse')
+            head_nurse.set_password('nurse123')
             head_nurse.role = 'head_nurse'
             db.session.add(head_nurse)
-            print('创建护士长用户: head_nurse / nurse')
+            print('创建护士长用户: head_nurse / nurse123')
         
         # 更新或创建护士用户
         nurse = User.query.filter_by(username='nurse').first()
         if nurse:
-            nurse.set_password('nurse')
+            nurse.set_password('nurse123')
             nurse.role = 'nurse'
-            print('更新护士用户密码: nurse / nurse')
+            print('更新护士用户密码: nurse / nurse123')
         else:
             nurse = User(username='nurse')
-            nurse.set_password('nurse')
+            nurse.set_password('nurse123')
             nurse.role = 'nurse'
             db.session.add(nurse)
-            print('创建护士用户: nurse / nurse')
+            print('创建护士用户: nurse / nurse123')
         
         # 更新或创建陪护用户
         caregiver = User.query.filter_by(username='caregiver').first()
         if caregiver:
-            caregiver.set_password('care')
+            caregiver.set_password('care123')
             caregiver.role = 'caregiver'
-            print('更新陪护用户密码: caregiver / care')
+            print('更新陪护用户密码: caregiver / care123')
         else:
             caregiver = User(username='caregiver')
-            caregiver.set_password('care')
+            caregiver.set_password('care123')
             caregiver.role = 'caregiver'
             db.session.add(caregiver)
-            print('创建陪护用户: caregiver / care')
+            print('创建陪护用户: caregiver / care123')
         
         # 提交更改
         db.session.commit()
