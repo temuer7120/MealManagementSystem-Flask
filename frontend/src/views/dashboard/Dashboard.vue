@@ -2,25 +2,41 @@
   <div class="dashboard-container">
     <h2 class="page-title">仪表盘</h2>
     <el-row :gutter="20">
-      <!-- 菜单数量卡片 (仅对admin和nutritionist显示) -->
-      <el-col v-if="dashboardPermissions.menuCount" :span="8">
-        <el-card shadow="hover" class="dashboard-card">
+      <!-- 订单数量卡片 (对admin, nutritionist, chef, admin_staff, head_nurse, nurse, caregiver显示) -->
+      <el-col v-if="dashboardPermissions.orderCount" :span="8">
+        <el-card shadow="hover" class="dashboard-card" @click="navigateTo('/order')" style="cursor: pointer;">
           <template #header>
             <div class="card-header">
-              <span>菜单数量</span>
+              <span>订单数量</span>
               <el-icon class="card-header-icon"><ShoppingCart /></el-icon>
             </div>
           </template>
           <div class="card-content">
-            <div class="card-value">{{ menuCount }}</div>
-            <div class="card-desc">可用菜单总数</div>
+            <div class="card-value">{{ orderCount }}</div>
+            <div class="card-desc">今日内销和外卖订单</div>
+          </div>
+        </el-card>
+      </el-col>
+      
+      <!-- 服务项目卡片 (对admin, nutritionist, admin_staff, head_nurse, nurse, caregiver, customer, guest显示) -->
+      <el-col v-if="dashboardPermissions.serviceProjects" :span="8">
+        <el-card shadow="hover" class="dashboard-card" @click="navigateTo('/nutrition')" style="cursor: pointer;">
+          <template #header>
+            <div class="card-header">
+              <span>服务项目</span>
+              <el-icon class="card-header-icon"><House /></el-icon>
+            </div>
+          </template>
+          <div class="card-content">
+            <div class="card-value">{{ serviceProjects }}</div>
+            <div class="card-desc">今日母婴服务项目</div>
           </div>
         </el-card>
       </el-col>
       
       <!-- 每日餐单卡片 (对所有角色显示) -->
       <el-col :span="8">
-        <el-card shadow="hover" class="dashboard-card">
+        <el-card shadow="hover" class="dashboard-card" @click="navigateTo('/menu')" style="cursor: pointer;">
           <template #header>
             <div class="card-header">
               <span>每日餐单</span>
@@ -36,7 +52,7 @@
       
       <!-- 客户数量卡片 (对admin, nutritionist, admin_staff, head_nurse, nurse, caregiver显示) -->
       <el-col v-if="dashboardPermissions.customerCount" :span="8">
-        <el-card shadow="hover" class="dashboard-card">
+        <el-card shadow="hover" class="dashboard-card" @click="navigateTo('/customer')" style="cursor: pointer;">
           <template #header>
             <div class="card-header">
               <span>客户数量</span>
@@ -52,7 +68,7 @@
       
       <!-- 活跃访客卡片 (仅对admin和admin_staff显示) -->
       <el-col v-if="dashboardPermissions.activeVisitors" :span="8">
-        <el-card shadow="hover" class="dashboard-card">
+        <el-card shadow="hover" class="dashboard-card" @click="navigateTo('/system')" style="cursor: pointer;">
           <template #header>
             <div class="card-header">
               <span>活跃访客</span>
@@ -104,15 +120,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
-import { ShoppingCart, Money, House, Timer, Warning } from '@element-plus/icons-vue'
-import axios from 'axios'
+import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { ShoppingCart, House, Timer, Warning } from '@element-plus/icons-vue'
 import { getCurrentTheme, applyTheme } from '../../utils/theme'
 import { getDashboardPermissions } from '../../utils/permissions'
 
+const router = useRouter()
+
 // 仪表盘数据
-const menuCount = ref(0)
+const orderCount = ref(0)
 const dailyMenuCount = ref(0)
+const serviceProjects = ref(0)
 const currentCustomers = ref(0)
 const activeVisitors = ref(0)
 const recentSchedule = ref<any[]>([])
@@ -120,7 +139,7 @@ const notifications = ref<any[]>([])
 
 // 用户角色和权限
 const currentUser = ref<any>(null)
-const dashboardPermissions = ref<any>(null)
+const dashboardPermissions = ref<any>(getDashboardPermissions('guest'))
 
 // 根据角色获取仪表盘权限
 const getCurrentUserDashboardPermissions = () => {
@@ -182,8 +201,9 @@ const getNotificationTitle = () => {
 const fetchDashboardData = async () => {
   try {
     // 模拟数据，实际项目中应该从后端API获取
-    menuCount.value = 25
+    orderCount.value = 45
     dailyMenuCount.value = 12
+    serviceProjects.value = 23
     currentCustomers.value = 28
     activeVisitors.value = 5
     
@@ -315,6 +335,11 @@ const initUserInfo = () => {
     currentUser.value = null
     dashboardPermissions.value = getDashboardPermissions('guest')
   }
+}
+
+// 跳转函数
+const navigateTo = (path: string) => {
+  router.push(path)
 }
 
 onMounted(() => {

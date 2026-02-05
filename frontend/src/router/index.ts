@@ -1,6 +1,4 @@
-import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
-
-
+import { createRouter, createWebHistory } from 'vue-router'
 
 import { hasRoutePermission } from '../utils/permissions'
 
@@ -9,12 +7,12 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      redirect: '/dashboard'
+      name: 'Login',
+      component: () => import('../views/auth/Login.vue')
     },
     {
       path: '/login',
-      name: 'Login',
-      component: () => import('../views/auth/Login.vue')
+      redirect: '/'
     },
     {
       path: '/dashboard',
@@ -42,55 +40,48 @@ const router = createRouter({
       component: () => import('../views/order/Order.vue')
     },
     {
-      path: '/mother-baby',
-      name: 'MotherBaby',
-      component: () => import('../views/mother-baby/MotherBaby.vue'),
-      children: [
-        {
-          path: 'confinement-meal',
-          name: 'ConfinementMeal',
-          component: () => import('../views/mother-baby/ConfinementMeal.vue')
-        },
-        {
-          path: 'health',
-          name: 'Health',
-          component: () => import('../views/mother-baby/Health.vue')
-        },
-        {
-          path: 'appointment',
-          name: 'Appointment',
-          component: () => import('../views/mother-baby/Appointment.vue')
-        },
-        {
-          path: 'nutrition',
-          name: 'Nutrition',
-          component: () => import('../views/mother-baby/Nutrition.vue')
-        }
-      ]
+      path: '/ingredient',
+      name: 'Ingredient',
+      component: () => import('../views/ingredient/Ingredient.vue')
     },
     {
-      path: '/system',
-      name: 'System',
-      component: () => import('../views/system/System.vue')
+      path: '/service-booking',
+      name: 'ServiceBooking',
+      component: () => import('../views/service-booking/ServiceBooking.vue')
+    },
+    {
+      path: '/employee',
+      name: 'Employee',
+      component: () => import('../views/employee/Employee.vue')
+    },
+    {
+      path: '/finance',
+      name: 'Finance',
+      component: () => import('../views/finance/Finance.vue')
+    },
+    {
+      path: '/report',
+      name: 'Report',
+      component: () => import('../views/report/Report.vue')
     }
   ]
 })
 
 // 添加路由守卫以检查权限
-router.beforeEach((to, from, next) => {
+router.beforeEach((to, _from, next) => {
   const token = localStorage.getItem('token')
   const userStr = localStorage.getItem('user')
   const user = userStr ? JSON.parse(userStr) : null
   const role = user ? user.role : null
   
   // 未登录用户重定向到登录页
-  if (!token && to.path !== '/login') {
-    next('/login')
+  if (!token && to.path !== '/' && to.path !== '/login') {
+    next('/')
     return
   }
   
   // 登录页不需要权限检查
-  if (to.path === '/login') {
+  if (to.path === '/' || to.path === '/login') {
     next()
     return
   }

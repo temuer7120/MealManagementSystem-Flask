@@ -16,68 +16,70 @@
             </router-link>
           </li>
           
-          <!-- 菜单管理 -->
-          <li v-if="hasMenuPermission('Menu')" class="nav-item">
-            <router-link to="/menu" class="nav-link" active-class="active">
-              <i class="fas fa-utensils"></i> 菜单管理
-            </router-link>
+          <!-- 月子餐管理 -->
+          <li class="nav-item">
+            <el-dropdown>
+              <span class="nav-link dropdown-toggle">
+                <i class="fas fa-utensils"></i> 月子餐管理
+              </span>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item @click="navigateTo('/menu')">
+                    <i class="fas fa-utensils"></i> 菜单管理
+                  </el-dropdown-item>
+                  <el-dropdown-item @click="navigateTo('/dish')">
+                    <i class="fas fa-drumstick-bite"></i> 菜品管理
+                  </el-dropdown-item>
+                  <el-dropdown-item @click="navigateTo('/ingredient')">
+                    <i class="fas fa-seedling"></i> 食材管理
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </li>
           
-          <!-- 菜品管理 -->
-          <li v-if="hasMenuPermission('Dish')" class="nav-item">
-            <router-link to="/dish" class="nav-link" active-class="active">
-              <i class="fas fa-drumstick-bite"></i> 菜品管理
-            </router-link>
+          <!-- 母婴服务 -->
+          <li class="nav-item">
+            <el-dropdown>
+              <span class="nav-link dropdown-toggle">
+                <i class="fas fa-baby"></i> 母婴服务
+              </span>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item @click="navigateTo('/order')">
+                    <i class="fas fa-shopping-cart"></i> 订餐管理
+                  </el-dropdown-item>
+                  <el-dropdown-item @click="navigateTo('/service-booking')">
+                    <i class="fas fa-calendar-check"></i> 服务预定
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </li>
           
-          <!-- 客户管理 -->
-          <li v-if="hasMenuPermission('Customer')" class="nav-item">
-            <router-link to="/customer" class="nav-link" active-class="active">
-              <i class="fas fa-user-friends"></i> 客户管理
-            </router-link>
-          </li>
-          
-          <!-- 订单管理 -->
-          <li v-if="hasMenuPermission('Order')" class="nav-item">
-            <router-link to="/order" class="nav-link" active-class="active">
-              <i class="fas fa-shopping-cart"></i> 订单管理
-            </router-link>
-          </li>
-          
-          <!-- 母婴管理 -->
-          <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle" href="#" id="mother-baby-dropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-              <i class="fas fa-baby"></i> 母婴管理
-            </a>
-            <ul class="dropdown-menu" aria-labelledby="mother-baby-dropdown">
-              <li>
-                <router-link to="/mother-baby/confinement-meal" class="dropdown-item">
-                  <i class="fas fa-utensil-spoon"></i> 月子餐
-                </router-link>
-              </li>
-              <li>
-                <router-link to="/mother-baby/health" class="dropdown-item">
-                  <i class="fas fa-heartbeat"></i> 健康管理
-                </router-link>
-              </li>
-              <li>
-                <router-link to="/mother-baby/appointment" class="dropdown-item">
-                  <i class="fas fa-calendar-alt"></i> 预约管理
-                </router-link>
-              </li>
-              <li>
-                <router-link to="/mother-baby/nutrition" class="dropdown-item">
-                  <i class="fas fa-apple-alt"></i> 营养管理
-                </router-link>
-              </li>
-            </ul>
-          </li>
-          
-          <!-- 系统管理 -->
-          <li v-if="hasMenuPermission('System')" class="nav-item">
-            <router-link to="/system" class="nav-link" active-class="active">
-              <i class="fas fa-cogs"></i> 系统管理
-            </router-link>
+          <!-- 管理功能 -->
+          <li class="nav-item">
+            <el-dropdown>
+              <span class="nav-link dropdown-toggle">
+                <i class="fas fa-cogs"></i> 管理功能
+              </span>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item @click="navigateTo('/customer')">
+                    <i class="fas fa-user-friends"></i> 客户管理
+                  </el-dropdown-item>
+                  <el-dropdown-item @click="navigateTo('/employee')">
+                    <i class="fas fa-users"></i> 员工管理
+                  </el-dropdown-item>
+                  <el-dropdown-item @click="navigateTo('/finance')">
+                    <i class="fas fa-money-bill-wave"></i> 财务管理
+                  </el-dropdown-item>
+                  <el-dropdown-item @click="navigateTo('/report')">
+                    <i class="fas fa-file-invoice"></i> 报表打印
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </li>
         </ul>
         <ul class="navbar-nav ms-auto">
@@ -105,20 +107,28 @@ import { getCurrentInstance } from 'vue'
 import { hasRoutePermission } from '../utils/permissions'
 
 const { proxy } = getCurrentInstance()!
-const router = proxy?.$router
 const currentUser = ref<any>(null)
 
 // 检查用户是否有权限访问菜单项
 const hasMenuPermission = (routeName: string) => {
-  if (!currentUser.value) return false
+  if (!currentUser.value) {
+    // 未登录用户默认显示基本菜单项
+    const defaultRoutes = ['Dashboard', 'ServiceBooking']
+    return defaultRoutes.includes(routeName)
+  }
   return hasRoutePermission(currentUser.value.role, routeName)
+}
+
+// 处理页面跳转
+const navigateTo = (path: string) => {
+  proxy?.$router.push(path)
 }
 
 // 处理退出登录
 const handleLogout = () => {
   localStorage.removeItem('token')
   localStorage.removeItem('user')
-  proxy?.$router.push('/login')
+  proxy?.$router.push('/')
 }
 
 // 初始化用户信息
@@ -164,23 +174,40 @@ onMounted(() => {
   border-bottom: 2px solid white;
 }
 
-.dropdown-menu {
-  background-color: var(--primary-color);
-  border: none;
-  border-radius: 0;
+/* Element Plus 下拉菜单样式 */
+:deep(.el-dropdown-menu) {
+  background-color: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  min-width: 180px;
 }
 
-.dropdown-item {
-  color: white;
+:deep(.el-dropdown-menu__item) {
+  color: var(--primary-color);
   display: flex;
   align-items: center;
   gap: 8px;
+  height: 40px;
+  line-height: 40px;
 }
 
-.dropdown-item:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+:deep(.el-dropdown-menu__item:hover) {
+  background-color: rgba(52, 152, 219, 0.1);
+  color: var(--primary-color);
+}
+
+/* 下拉菜单项样式 */
+.dropdown-toggle {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   color: white;
+}
+
+.dropdown-toggle:hover {
+  color: #f0f0f0;
 }
 
 .btn-outline-light {

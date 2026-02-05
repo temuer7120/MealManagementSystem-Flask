@@ -34,6 +34,10 @@ const ROLE_THEMES = {
     primary: '#FF99A8',
     name: '浅粉色'
   },
+  user: {
+    primary: '#FF99A8',
+    name: '浅粉色'
+  },
   guest: {
     primary: '#FF99A8',
     name: '浅粉色'
