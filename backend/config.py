@@ -9,7 +9,7 @@ SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL', 'mysql+pymysql://root:MySQL@
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 
 # JWT配置
-JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', 'your-secret-key-here')
+JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', 'MySQL')
 
 # 上传文件配置
 UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', 'uploads')
@@ -17,8 +17,4 @@ ALLOWED_EXTENSIONS = set(os.getenv('ALLOWED_EXTENSIONS', 'xlsx,xls').split(','))
 
 # 确保上传文件夹存在
 if not os.path.exists(UPLOAD_FOLDER):
-<<<<<<< HEAD
     os.makedirs(UPLOAD_FOLDER)
-=======
-    os.makedirs(UPLOAD_FOLDER)
->>>>>>> ce8589de882afd4b0eb2eca2e03d66894318da84

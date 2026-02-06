@@ -32,11 +32,7 @@ def create_app():
     # 初始化CORS
     from extensions import cors
     # 安全的CORS配置，只允许特定来源
-<<<<<<< HEAD
     cors_origins = os.getenv('CORS_ORIGINS', 'http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001').split(',')
-=======
-    cors_origins = os.getenv('CORS_ORIGINS', 'http://localhost:3000,http://127.0.0.1:3000').split(',')
->>>>>>> ce8589de882afd4b0eb2eca2e03d66894318da84
     cors.init_app(app, resources={r"/api/*": {"origins": cors_origins}})
     
     # 初始化缓存
@@ -98,8 +94,4 @@ if __name__ == '__main__':
     print("启动Flask应用程序...")
     print("监听地址: 0.0.0.0:5000")
     print("API基础路径: http://localhost:5000/api")
-<<<<<<< HEAD
     app.run(debug=True, host='0.0.0.0', port=5000, threaded=True)
-=======
-    app.run(debug=True, host='0.0.0.0', port=5000, threaded=True)
->>>>>>> ce8589de882afd4b0eb2eca2e03d66894318da84

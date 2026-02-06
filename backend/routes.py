@@ -3147,7 +3147,120 @@ def get_delivery_status_history(assignment_id):
         'notes': update.notes
     } for update in status_history])
 
-# 服务管理API
+# 菜单分类API
+@api.route('/menu_categories', methods=['GET'])
+def get_menu_categories():
+    """获取所有菜单分类"""
+    categories = MenuCategory.query.all()
+    return jsonify([{
+        'id': category.id,
+        'name': category.name,
+        'description': category.description
+    } for category in categories])
+
+@api.route('/menu_categories', methods=['POST'])
+def create_menu_category():
+    """创建新菜单分类"""
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    # 验证数据
+    required_fields = ['name']
+    is_valid, error = validate_data(data, required_fields)
+    if not is_valid:
+        return jsonify(error), 400
+    
+    # 检查菜单分类是否已存在
+    existing_category = MenuCategory.query.filter_by(name=data['name']).first()
+    if existing_category:
+        return jsonify({'error': 'Menu category already exists'}), 400
+    
+    # 创建菜单分类
+    category = MenuCategory(
+        name=data['name'],
+        description=data.get('description')
+    )
+    
+    try:
+        db.session.add(category)
+        db.session.commit()
+        return jsonify({
+            'id': category.id,
+            'name': category.name,
+            'description': category.description
+        }), 201
+    except Exception as e:
+        db.session.rollback()
+        return handle_error(e)
+
+@api.route('/menu_categories/<int:category_id>', methods=['GET'])
+def get_menu_category_detail(category_id):
+    """获取菜单分类详情"""
+    category = MenuCategory.query.get(category_id)
+    if not category:
+        return jsonify({'error': 'Menu category not found'}), 404
+    
+    return jsonify({
+        'id': category.id,
+        'name': category.name,
+        'description': category.description
+    })
+
+@api.route('/menu_categories/<int:category_id>', methods=['PUT'])
+def update_menu_category(category_id):
+    """更新菜单分类"""
+    category = MenuCategory.query.get(category_id)
+    if not category:
+        return jsonify({'error': 'Menu category not found'}), 404
+    
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    # 验证数据
+    required_fields = ['name']
+    is_valid, error = validate_data(data, required_fields)
+    if not is_valid:
+        return jsonify(error), 400
+    
+    # 更新菜单分类
+    if 'name' in data:
+        # 检查菜单分类名称是否已被其他分类使用
+        existing_category = MenuCategory.query.filter_by(name=data['name']).filter(MenuCategory.id != category_id).first()
+        if existing_category:
+            return jsonify({'error': 'Menu category name already exists'}), 400
+        category.name = data['name']
+    if 'description' in data:
+        category.description = data['description']
+    
+    try:
+        db.session.commit()
+        return jsonify({
+            'id': category.id,
+            'name': category.name,
+            'description': category.description
+        })
+    except Exception as e:
+        db.session.rollback()
+        return handle_error(e)
+
+@api.route('/menu_categories/<int:category_id>', methods=['DELETE'])
+def delete_menu_category(category_id):
+    """删除菜单分类"""
+    category = MenuCategory.query.get(category_id)
+    if not category:
+        return jsonify({'error': 'Menu category not found'}), 404
+    
+    try:
+        db.session.delete(category)
+        db.session.commit()
+        return jsonify({'message': 'Menu category deleted successfully'})
+    except Exception as e:
+        db.session.rollback()
+        return handle_error(e)
+
+# 服务分类API
 @api.route('/service_categories', methods=['GET'])
 def get_service_categories():
     """获取所有服务分类"""
@@ -3509,7 +3622,7 @@ def get_service_bookings():
         'start_time': booking.start_time.strftime('%H:%M') if booking.start_time else None,
         'duration_minutes': booking.duration_minutes,
         'status': booking.status,
-        'price': booking.price
+        'price': booking.service_item.price if booking.service_item else None
     } for booking in bookings])
 
 @api.route('/service_bookings', methods=['POST'])
