@@ -101,23 +101,16 @@ def add_employees():
         db.session.add(user)
         db.session.flush()  # 获取用户ID
         
-        # 分配角色
-        user_role = UserRole(
-            user_id=user.id,
-            role_id=emp["role"].id
-        )
+        # 添加角色关联
+        user_role = UserRole(user_id=user.id, role_id=emp["role"].id)
         db.session.add(user_role)
         
+        print(f"添加员工 {emp['full_name']} 成功")
         added_count += 1
-        print(f"添加员工：{emp['full_name']} ({emp['username']}) - {emp['role'].name}")
     
     # 提交事务
-    try:
-        db.session.commit()
-        print(f"\n成功添加 {added_count} 名员工")
-    except Exception as e:
-        db.session.rollback()
-        print(f"\n错误：{e}")
+    db.session.commit()
+    print(f"员工添加完成！共添加 {added_count} 名员工")
 
 if __name__ == "__main__":
     from app import app

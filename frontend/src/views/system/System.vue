@@ -73,6 +73,23 @@
         </el-card>
       </el-tab-pane>
       
+      <el-tab-pane label="权限管理" name="permissions">
+        <el-card shadow="hover" class="system-card">
+          <template #header>
+            <div class="card-header">
+              <span>权限列表</span>
+            </div>
+          </template>
+          
+          <el-table :data="permissions" style="width: 100%">
+            <el-table-column prop="name" label="权限名称" width="150" />
+            <el-table-column prop="code" label="权限代码" width="150" />
+            <el-table-column prop="module" label="模块" width="120" />
+            <el-table-column prop="description" label="描述" />
+          </el-table>
+        </el-card>
+      </el-tab-pane>
+      
       <el-tab-pane label="系统信息" name="info">
         <el-card shadow="hover" class="system-card">
           <template #header>
@@ -117,10 +134,12 @@
         </el-form-item>
         <el-form-item label="角色" prop="role">
           <el-select v-model="userForm.role" placeholder="请选择角色">
-            <el-option label="admin" value="admin" />
-            <el-option label="nutritionist" value="nutritionist" />
-            <el-option label="chef" value="chef" />
-            <el-option label="staff" value="staff" />
+            <el-option 
+              v-for="role in roles" 
+              :key="role.id" 
+              :label="role.name" 
+              :value="role.name" 
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="状态">
@@ -172,6 +191,7 @@ import axios from 'axios'
 const activeTab = ref('users')
 const users = ref<any[]>([])
 const roles = ref<any[]>([])
+const permissions = ref<any[]>([])
 const userDialogVisible = ref(false)
 const roleDialogVisible = ref(false)
 const userFormRef = ref<any>(null)
@@ -237,6 +257,17 @@ const fetchRoles = async () => {
   } catch (error) {
     console.error('Error fetching roles:', error)
     ElMessage.error('获取角色列表失败')
+  }
+}
+
+const fetchPermissions = async () => {
+  try {
+    // 从后端API获取权限列表
+    const response = await axios.get('/api/permissions')
+    permissions.value = response.data
+  } catch (error) {
+    console.error('Error fetching permissions:', error)
+    ElMessage.error('获取权限列表失败')
   }
 }
 
@@ -389,6 +420,7 @@ const submitRole = async () => {
 onMounted(() => {
   fetchUsers()
   fetchRoles()
+  fetchPermissions()
 })
 </script>
 

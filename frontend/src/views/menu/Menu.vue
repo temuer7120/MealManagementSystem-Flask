@@ -304,39 +304,9 @@ const menuSummary = computed(() => {
 // 获取菜单列表
 const fetchMenus = async () => {
   try {
-    // 模拟数据，实际项目中应该从后端API获取
-    menus.value = [
-      {
-        id: 1, 
-        name: '基础月子餐', 
-        description: '适合产后第一周的基础调理餐', 
-        price: 380, 
-        total_weight: 600, 
-        total_calories: 800, 
-        is_active: true,
-        postpartum_period: 'week1'
-      },
-      {
-        id: 2, 
-        name: '进阶月子餐', 
-        description: '适合产后第二周的营养补充餐', 
-        price: 420, 
-        total_weight: 650, 
-        total_calories: 900, 
-        is_active: true,
-        postpartum_period: 'week2'
-      },
-      {
-        id: 3, 
-        name: '高级月子餐', 
-        description: '适合产后第三周的全面恢复餐', 
-        price: 560, 
-        total_weight: 700, 
-        total_calories: 1000, 
-        is_active: true,
-        postpartum_period: 'week3'
-      }
-    ]
+    // 从后端API获取菜单列表
+    const response = await axios.get('/api/menus')
+    menus.value = response.data
   } catch (error) {
     console.error('Error fetching menus:', error)
     ElMessage.error('获取餐单列表失败')
@@ -346,99 +316,9 @@ const fetchMenus = async () => {
 // 获取菜品列表
 const fetchDishes = async () => {
   try {
-    // 模拟数据，实际项目中应该从后端API获取
-    dishes.value = [
-      {
-        id: 1, 
-        name: '小米粥', 
-        price: 15, 
-        weight: 200, 
-        total_calories: 100,
-        taboo_info: '无特殊禁忌',
-        suitable_for: '所有产后阶段',
-        not_suitable_for: '无'
-      },
-      {
-        id: 2, 
-        name: '清蒸排骨', 
-        price: 68, 
-        weight: 250, 
-        total_calories: 300,
-        taboo_info: '产后第一天宜少量',
-        suitable_for: '产后第一周及以上',
-        not_suitable_for: '无'
-      },
-      {
-        id: 3, 
-        name: '清炒菠菜', 
-        price: 28, 
-        weight: 150, 
-        total_calories: 80,
-        taboo_info: '产后一周内宜熟食',
-        suitable_for: '产后第一周及以上',
-        not_suitable_for: '无'
-      },
-      {
-        id: 4, 
-        name: '红枣鸡汤', 
-        price: 78, 
-        weight: 300, 
-        total_calories: 350,
-        taboo_info: '无特殊禁忌',
-        suitable_for: '产后第二周及以上',
-        not_suitable_for: '产后第一周慎食'
-      },
-      {
-        id: 5, 
-        name: '当归蛋', 
-        price: 38, 
-        weight: 150, 
-        total_calories: 180,
-        taboo_info: '无特殊禁忌',
-        suitable_for: '产后第二周及以上',
-        not_suitable_for: '产后第一周慎食'
-      },
-      {
-        id: 6, 
-        name: '胡萝卜炒肉片', 
-        price: 48, 
-        weight: 200, 
-        total_calories: 220,
-        taboo_info: '无特殊禁忌',
-        suitable_for: '产后第二周及以上',
-        not_suitable_for: '无'
-      },
-      {
-        id: 7, 
-        name: '鲫鱼汤', 
-        price: 68, 
-        weight: 300, 
-        total_calories: 280,
-        taboo_info: '无特殊禁忌',
-        suitable_for: '产后第三周及以上',
-        not_suitable_for: '产后第一、二周慎食'
-      },
-      {
-        id: 8, 
-        name: '山药炖排骨', 
-        price: 78, 
-        weight: 250, 
-        total_calories: 320,
-        taboo_info: '无特殊禁忌',
-        suitable_for: '产后第三周及以上',
-        not_suitable_for: '产后第一、二周慎食'
-      },
-      {
-        id: 9, 
-        name: '西兰花炒虾仁', 
-        price: 58, 
-        weight: 200, 
-        total_calories: 250,
-        taboo_info: '无特殊禁忌',
-        suitable_for: '产后第三周及以上',
-        not_suitable_for: '产后第一、二周慎食'
-      }
-    ]
+    // 从后端API获取菜品列表
+    const response = await axios.get('/api/dishes')
+    dishes.value = response.data
   } catch (error) {
     console.error('Error fetching dishes:', error)
     ElMessage.error('获取菜品列表失败')

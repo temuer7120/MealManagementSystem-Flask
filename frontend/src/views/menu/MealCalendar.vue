@@ -335,15 +335,9 @@ const handleDateChange = () => {
 
 // 生成餐单
 const generateMealPlan = () => {
-  // 模拟生成餐单数据
-  const mockMeals = [
-    { date: formatDate(currentDate.value), mealType: 'breakfast', name: '小米粥', calories: 300, weight: 200, description: '营养早餐' },
-    { date: formatDate(currentDate.value), mealType: 'lunch', name: '清蒸排骨', calories: 500, weight: 300, description: '营养午餐' },
-    { date: formatDate(currentDate.value), mealType: 'dinner', name: '清炒菠菜', calories: 400, weight: 250, description: '营养晚餐' }
-  ]
-  
-  meals.value = [...meals.value, ...mockMeals]
-  ElMessage.success('餐单生成成功')
+  // 清空当前餐单数据
+  meals.value = meals.value.filter(meal => meal.date !== formatDate(currentDate.value))
+  ElMessage.success('餐单已清空')
 }
 
 // 获取指定日期和餐次的餐单
@@ -412,14 +406,8 @@ const submitMeal = async () => {
 
 // 初始化数据
 const initData = () => {
-  // 模拟初始数据
-  const today = new Date()
-  const mockData = [
-    { date: formatDate(today), mealType: 'breakfast', name: '小米粥', calories: 300, weight: 200, description: '营养早餐' },
-    { date: formatDate(today), mealType: 'lunch', name: '清蒸排骨', calories: 500, weight: 300, description: '营养午餐' },
-    { date: formatDate(today), mealType: 'dinner', name: '清炒菠菜', calories: 400, weight: 250, description: '营养晚餐' }
-  ]
-  meals.value = mockData
+  // 初始为空，后续从后端API获取数据
+  meals.value = []
 }
 
 onMounted(() => {

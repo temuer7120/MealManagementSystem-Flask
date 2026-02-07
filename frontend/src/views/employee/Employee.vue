@@ -21,7 +21,7 @@
         <el-table-column prop="position" label="职位" />
         <el-table-column label="角色">
           <template #default="scope">
-            <el-tag v-for="role in scope.row.roles" :key="role" size="small" style="margin-right: 5px;">
+            <el-tag v-for="role in (scope.row.role ? [scope.row.role] : [])" :key="role" size="small" style="margin-right: 5px;">
               {{ role }}
             </el-tag>
           </template>
@@ -52,82 +52,47 @@
       :title="editingEmployee ? '编辑员工' : '添加员工'"
       width="500px"
     >
-      <div class="form-group">
-        <label for="employee-username">用户名</label>
-        <input 
-          type="text" 
-          class="form-control" 
-          id="employee-username" 
-          v-model="formData.username"
-          required
-        >
-      </div>
-      <div class="form-group" v-if="!editingEmployee">
-        <label for="employee-password">密码</label>
-        <input 
-          type="password" 
-          class="form-control" 
-          id="employee-password" 
-          v-model="formData.password"
-          required
-        >
-      </div>
-      <div class="form-group">
-        <label for="employee-full-name">姓名</label>
-        <input 
-          type="text" 
-          class="form-control" 
-          id="employee-full-name" 
-          v-model="formData.full_name"
-        >
-      </div>
-      <div class="form-group">
-        <label for="employee-email">邮箱</label>
-        <input 
-          type="email" 
-          class="form-control" 
-          id="employee-email" 
-          v-model="formData.email"
-        >
-      </div>
-      <div class="form-group">
-        <label for="employee-phone">联系电话</label>
-        <input 
-          type="tel" 
-          class="form-control" 
-          id="employee-phone" 
-          v-model="formData.phone"
-        >
-      </div>
-      <div class="form-group">
-        <label for="employee-department">部门</label>
-        <input 
-          type="text" 
-          class="form-control" 
-          id="employee-department" 
-          v-model="formData.department"
-        >
-      </div>
-      <div class="form-group">
-        <label for="employee-position">职位</label>
-        <input 
-          type="text" 
-          class="form-control" 
-          id="employee-position" 
-          v-model="formData.position"
-        >
-      </div>
-      <div class="form-group">
-        <label for="employee-is-active">状态</label>
-        <select 
-          class="form-control" 
-          id="employee-is-active" 
-          v-model="formData.is_active"
-        >
-          <option :value="true">启用</option>
-          <option :value="false">禁用</option>
-        </select>
-      </div>
+      <el-form :model="formData" style="padding: 0 20px;">
+        <el-form-item label="用户名" prop="username">
+          <el-input v-model="formData.username" placeholder="请输入用户名" />
+        </el-form-item>
+        <el-form-item label="密码" prop="password" v-if="!editingEmployee">
+          <el-input
+            v-model="formData.password"
+            type="password"
+            placeholder="请输入密码"
+            show-password
+          />
+        </el-form-item>
+        <el-form-item label="姓名" prop="full_name">
+          <el-input v-model="formData.full_name" placeholder="请输入姓名" />
+        </el-form-item>
+        <el-form-item label="邮箱" prop="email">
+          <el-input v-model="formData.email" placeholder="请输入邮箱" />
+        </el-form-item>
+        <el-form-item label="联系电话" prop="phone">
+          <el-input v-model="formData.phone" placeholder="请输入联系电话" />
+        </el-form-item>
+        <el-form-item label="部门" prop="department">
+          <el-input v-model="formData.department" placeholder="请输入部门" />
+        </el-form-item>
+        <el-form-item label="职位" prop="position">
+          <el-input v-model="formData.position" placeholder="请输入职位" />
+        </el-form-item>
+        <el-form-item label="角色" prop="role">
+          <el-select v-model="formData.role" placeholder="请选择角色">
+            <el-option 
+              v-for="role in roles" 
+              :key="role.id" 
+              :label="role.name" 
+              :value="role.name" 
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="状态">
+          <el-switch v-model="formData.is_active" />
+        </el-form-item>
+      </el-form>
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="showAddForm = false">取消</el-button>
@@ -145,6 +110,7 @@ import axios from 'axios'
 const showAddForm = ref(false)
 const editingEmployee = ref(false)
 const employees = ref([])
+const roles = ref([])
 const formData = ref({
   id: null,
   username: '',
@@ -154,11 +120,13 @@ const formData = ref({
   phone: '',
   department: '',
   position: '',
+  role: '',
   is_active: true
 })
 
 onMounted(() => {
   fetchEmployees()
+  fetchRoles()
 })
 
 const fetchEmployees = async () => {
@@ -167,6 +135,15 @@ const fetchEmployees = async () => {
     employees.value = response.data
   } catch (error) {
     console.error('获取员工列表失败:', error)
+  }
+}
+
+const fetchRoles = async () => {
+  try {
+    const response = await axios.get('/api/roles')
+    roles.value = response.data
+  } catch (error) {
+    console.error('获取角色列表失败:', error)
   }
 }
 
