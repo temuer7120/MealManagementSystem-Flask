@@ -1,6 +1,8 @@
 <template>
   <div class="order-container">
-    <h2>订单管理</h2>
+    <h2 class="page-title">
+      <i class="fas fa-shopping-cart"></i> 订单管理
+    </h2>
     <!-- 订单列表 -->
     <el-card shadow="hover" class="order-card">
       <template #header>
@@ -16,7 +18,10 @@
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="order_number" label="订单编号" width="180" />
         <el-table-column prop="customer_name" label="客户姓名" />
+        <el-table-column prop="menu_name" label="菜单名称" />
         <el-table-column prop="total_amount" label="订单金额" width="120" />
+        <el-table-column prop="total_weight" label="总重量" width="100" />
+        <el-table-column prop="total_calories" label="总热量" width="100" />
         <el-table-column prop="order_date" label="下单日期" width="180" />
         <el-table-column prop="status" label="状态" width="100">
           <template #default="scope">
@@ -42,7 +47,7 @@
     <el-dialog
       v-model="dialogVisible"
       title="订单管理"
-      width="500px"
+      width="700px"
     >
       <el-form :model="orderForm" :rules="rules" ref="formRef">
         <el-form-item label="客户" prop="customer_id">
@@ -55,6 +60,87 @@
             />
           </el-select>
         </el-form-item>
+        
+        <el-form-item label="菜单" prop="menu_id">
+          <el-select v-model="orderForm.menu_id" placeholder="请选择菜单" @change="handleMenuChange">
+            <el-option
+              v-for="menu in menus"
+              :key="menu.id"
+              :label="menu.name"
+              :value="menu.id"
+            />
+          </el-select>
+        </el-form-item>
+        
+        <!-- 菜单信息 -->
+        <el-card v-if="selectedMenu" shadow="hover" class="menu-info-card">
+          <template #header>
+            <div class="card-header">
+              <span>菜单信息</span>
+            </div>
+          </template>
+          <div class="menu-info">
+            <div class="menu-info-item">
+              <span class="label">菜单名称：</span>
+              <span>{{ selectedMenu.name }}</span>
+            </div>
+            <div class="menu-info-item">
+              <span class="label">描述：</span>
+              <span>{{ selectedMenu.description }}</span>
+            </div>
+            <div class="menu-info-item">
+              <span class="label">总重量：</span>
+              <span>{{ selectedMenu.total_weight }}g</span>
+            </div>
+            <div class="menu-info-item">
+              <span class="label">总热量：</span>
+              <span>{{ selectedMenu.total_calories }}kcal</span>
+            </div>
+            <div class="menu-info-item">
+              <span class="label">价格：</span>
+              <span>{{ selectedMenu.price }}元</span>
+            </div>
+            <div class="menu-info-item">
+              <span class="label">产后阶段：</span>
+              <span>{{ getPostpartumPeriodText(selectedMenu.postpartum_period) }}</span>
+            </div>
+          </div>
+        </el-card>
+        
+        <!-- 禁忌检测 -->
+        <el-card v-if="selectedMenu" shadow="hover" class="taboo-detection-card">
+          <template #header>
+            <div class="card-header">
+              <span>禁忌检测</span>
+              <el-button type="primary" size="small" @click="checkTaboo">
+                <el-icon><Check /></el-icon> 检测禁忌
+              </el-button>
+            </div>
+          </template>
+          <div v-if="tabooResult" class="taboo-result">
+            <div v-if="tabooResult.hasTaboo" class="taboo-warning">
+              <el-alert
+                title="禁忌警告"
+                type="warning"
+                :description="tabooResult.warningMessage"
+                show-icon
+                :closable="false"
+                class="taboo-alert"
+              />
+            </div>
+            <div v-else class="taboo-safe">
+              <el-alert
+                title="检测通过"
+                type="success"
+                description="该菜单未检测到禁忌"
+                show-icon
+                :closable="false"
+                class="taboo-alert"
+              />
+            </div>
+          </div>
+        </el-card>
+        
         <el-form-item label="订单金额" prop="total_amount">
           <el-input-number v-model="orderForm.total_amount" :min="0" :step="0.01" placeholder="请输入订单金额" />
         </el-form-item>
@@ -86,27 +172,34 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
+import { Plus, Check } from '@element-plus/icons-vue'
 import axios from 'axios'
 
 const orders = ref<any[]>([])
 const customers = ref<any[]>([])
+const menus = ref<any[]>([])
 const dialogVisible = ref(false)
 const formRef = ref<any>(null)
+const selectedMenu = ref<any>(null)
+const tabooResult = ref<any>(null)
 
 const orderForm = ref({
   id: '',
   order_number: '',
   customer_id: '',
+  menu_id: '',
   total_amount: 0,
+  total_weight: 0,
+  total_calories: 0,
   order_date: '',
   status: 'pending'
 })
 
 const rules = ref({
   customer_id: [{ required: true, message: '请选择客户', trigger: 'change' }],
+  menu_id: [{ required: true, message: '请选择菜单', trigger: 'change' }],
   total_amount: [{ required: true, message: '请输入订单金额', trigger: 'blur' }],
   order_date: [{ required: true, message: '请选择下单日期', trigger: 'change' }],
   status: [{ required: true, message: '请选择状态', trigger: 'change' }]
@@ -127,38 +220,26 @@ const getStatusType = (status: string) => {
   }
 }
 
+const getPostpartumPeriodText = (period: string) => {
+  switch (period) {
+    case 'week1':
+      return '产后第一周'
+    case 'week2':
+      return '产后第二周'
+    case 'week3':
+      return '产后第三周'
+    case 'week4+':
+      return '产后第四周及以上'
+    default:
+      return period
+  }
+}
+
 const fetchOrders = async () => {
   try {
-    // 模拟数据，实际项目中应该从后端API获取
-    orders.value = [
-      {
-        id: 1,
-        order_number: 'ORD-20260204-001',
-        customer_id: 1,
-        customer_name: '张女士',
-        total_amount: 380,
-        order_date: '2026-02-04 10:30:00',
-        status: 'completed'
-      },
-      {
-        id: 2,
-        order_number: 'ORD-20260204-002',
-        customer_id: 2,
-        customer_name: '李女士',
-        total_amount: 420,
-        order_date: '2026-02-04 09:15:00',
-        status: 'completed'
-      },
-      {
-        id: 3,
-        order_number: 'ORD-20260204-003',
-        customer_id: 3,
-        customer_name: '王女士',
-        total_amount: 560,
-        order_date: '2026-02-04 08:45:00',
-        status: 'processing'
-      }
-    ]
+    // 从后端API获取订单列表
+    const response = await axios.get('/api/orders')
+    orders.value = response.data
   } catch (error) {
     console.error('Error fetching orders:', error)
     ElMessage.error('获取订单列表失败')
@@ -167,15 +248,114 @@ const fetchOrders = async () => {
 
 const fetchCustomers = async () => {
   try {
-    // 模拟数据，实际项目中应该从后端API获取
-    customers.value = [
-      { id: 1, name: '张女士' },
-      { id: 2, name: '李女士' },
-      { id: 3, name: '王女士' }
-    ]
+    const response = await axios.get('/api/customers')
+    customers.value = response.data
   } catch (error) {
     console.error('Error fetching customers:', error)
     ElMessage.error('获取客户列表失败')
+  }
+}
+
+const fetchMenus = async () => {
+  try {
+    // 模拟数据，实际项目中应该从后端API获取
+    menus.value = [
+      {
+        id: 1,
+        name: '基础月子餐',
+        description: '适合产后第一周的基础调理餐',
+        price: 380,
+        total_weight: 600,
+        total_calories: 800,
+        is_active: true,
+        postpartum_period: 'week1'
+      },
+      {
+        id: 2,
+        name: '进阶月子餐',
+        description: '适合产后第二周的营养补充餐',
+        price: 420,
+        total_weight: 650,
+        total_calories: 900,
+        is_active: true,
+        postpartum_period: 'week2'
+      },
+      {
+        id: 3,
+        name: '高级月子餐',
+        description: '适合产后第三周的全面恢复餐',
+        price: 560,
+        total_weight: 700,
+        total_calories: 1000,
+        is_active: true,
+        postpartum_period: 'week3'
+      }
+    ]
+  } catch (error) {
+    console.error('Error fetching menus:', error)
+    ElMessage.error('获取菜单列表失败')
+  }
+}
+
+const handleMenuChange = (menuId: number) => {
+  const menu = menus.value.find(m => m.id === menuId)
+  if (menu) {
+    selectedMenu.value = menu
+    orderForm.value.total_amount = menu.price
+    orderForm.value.total_weight = menu.total_weight
+    orderForm.value.total_calories = menu.total_calories
+    tabooResult.value = null
+  } else {
+    selectedMenu.value = null
+    orderForm.value.total_amount = 0
+    orderForm.value.total_weight = 0
+    orderForm.value.total_calories = 0
+    tabooResult.value = null
+  }
+}
+
+const checkTaboo = () => {
+  if (!selectedMenu.value) {
+    ElMessage.warning('请先选择菜单')
+    return
+  }
+  
+  const customer = customers.value.find(c => c.id === orderForm.value.customer_id)
+  if (!customer) {
+    ElMessage.warning('请先选择客户')
+    return
+  }
+  
+  // 检测菜单的产后阶段是否与客户的产后阶段匹配
+  const menuPeriod = selectedMenu.value.postpartum_period
+  const customerPeriod = customer.postpartum_period
+  
+  let hasTaboo = false
+  let warningMessage = ''
+  
+  if (menuPeriod === 'week1' && (customerPeriod === 'week2' || customerPeriod === 'week3' || customerPeriod === 'week4+')) {
+    hasTaboo = true
+    warningMessage = `菜单适合产后第一周，客户当前处于${getPostpartumPeriodText(customerPeriod)}，建议选择更适合的菜单`
+  } else if (menuPeriod === 'week2' && (customerPeriod === 'week3' || customerPeriod === 'week4+')) {
+    hasTaboo = true
+    warningMessage = `菜单适合产后第二周，客户当前处于${getPostpartumPeriodText(customerPeriod)}，建议选择更适合的菜单`
+  } else if (menuPeriod === 'week3' && customerPeriod === 'week4+') {
+    hasTaboo = true
+    warningMessage = `菜单适合产后第三周，客户当前处于${getPostpartumPeriodText(customerPeriod)}，建议选择更适合的菜单`
+  } else if (menuPeriod === 'week2' && customerPeriod === 'week1') {
+    hasTaboo = true
+    warningMessage = `菜单适合产后第二周，客户当前处于${getPostpartumPeriodText(customerPeriod)}，该菜单可能过于滋补，建议选择更适合的菜单`
+  } else if (menuPeriod === 'week3' && (customerPeriod === 'week1' || customerPeriod === 'week2')) {
+    hasTaboo = true
+    warningMessage = `菜单适合产后第三周，客户当前处于${getPostpartumPeriodText(customerPeriod)}，该菜单可能过于滋补，建议选择更适合的菜单`
+  } else if (menuPeriod === 'week4+' && (customerPeriod === 'week1' || customerPeriod === 'week2' || customerPeriod === 'week3')) {
+    hasTaboo = true
+    warningMessage = `菜单适合产后第四周及以上，客户当前处于${getPostpartumPeriodText(customerPeriod)}，该菜单可能过于滋补，建议选择更适合的菜单`
+  }
+  
+  tabooResult.value = {
+    hasTaboo: hasTaboo,
+    warningMessage: warningMessage
   }
 }
 
@@ -187,15 +367,25 @@ const openOrderForm = () => {
     id: '',
     order_number: orderNumber,
     customer_id: '',
+    menu_id: '',
     total_amount: 0,
+    total_weight: 0,
+    total_calories: 0,
     order_date: today.toISOString().slice(0, 19).replace('T', ' '),
     status: 'pending'
   }
+  selectedMenu.value = null
+  tabooResult.value = null
   dialogVisible.value = true
 }
 
 const editOrder = (order: any) => {
   orderForm.value = { ...order }
+  // 获取菜单信息
+  const menu = menus.value.find(m => m.id === order.menu_id)
+  if (menu) {
+    selectedMenu.value = menu
+  }
   dialogVisible.value = true
 }
 
@@ -206,7 +396,9 @@ const deleteOrder = (orderId: number) => {
     type: 'warning'
   }).then(async () => {
     try {
-      // 模拟删除，实际项目中应该调用后端API
+      // 调用后端API删除订单
+      await axios.delete(`/api/orders/${orderId}`)
+      // 从本地列表中移除
       orders.value = orders.value.filter(order => order.id !== orderId)
       ElMessage.success('订单删除成功')
     } catch (error) {
@@ -226,13 +418,18 @@ const submitOrder = async () => {
         const customer = customers.value.find(cust => cust.id === orderForm.value.customer_id)
         const customerName = customer ? customer.name : '未知客户'
         
+        // 获取菜单名称
+        const menu = menus.value.find(m => m.id === orderForm.value.menu_id)
+        const menuName = menu ? menu.name : '未知菜单'
+        
         if (orderForm.value.id) {
           // 编辑订单
           const index = orders.value.findIndex(order => order.id === orderForm.value.id)
           if (index !== -1) {
             orders.value[index] = {
               ...orderForm.value,
-              customer_name: customerName
+              customer_name: customerName,
+              menu_name: menuName
             }
           }
           ElMessage.success('订单更新成功')
@@ -241,7 +438,8 @@ const submitOrder = async () => {
           const newOrder = {
             ...orderForm.value,
             id: orders.value.length + 1,
-            customer_name: customerName
+            customer_name: customerName,
+            menu_name: menuName
           }
           orders.value.push(newOrder)
           ElMessage.success('订单创建成功')
@@ -258,6 +456,7 @@ const submitOrder = async () => {
 onMounted(() => {
   fetchOrders()
   fetchCustomers()
+  fetchMenus()
 })
 </script>
 
@@ -279,5 +478,61 @@ onMounted(() => {
 .dialog-footer {
   display: flex;
   justify-content: flex-end;
+}
+
+.menu-info-card {
+  margin: 20px 0;
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+}
+
+.menu-info {
+  padding: 10px;
+}
+
+.menu-info-item {
+  margin: 8px 0;
+  display: flex;
+  align-items: center;
+}
+
+.menu-info-item .label {
+  font-weight: bold;
+  width: 100px;
+}
+
+.taboo-detection-card {
+  margin: 20px 0;
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+}
+
+.taboo-result {
+  padding: 10px;
+}
+
+.taboo-alert {
+  margin: 10px 0;
+}
+
+.el-table .cell {
+  white-space: normal;
+  word-break: break-all;
+}
+
+@media (max-width: 768px) {
+  .order-container {
+    padding: 10px;
+  }
+  
+  .menu-info-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .menu-info-item .label {
+    width: 100%;
+    margin-bottom: 4px;
+  }
 }
 </style>

@@ -1,6 +1,8 @@
 <template>
   <div class="customer-container">
-    <h2>客户管理</h2>
+    <h2 class="page-title">
+      <i class="fas fa-user-friends"></i> 客户管理
+    </h2>
     <!-- 客户列表 -->
     <el-card shadow="hover" class="customer-card">
       <template #header>
@@ -131,36 +133,9 @@ const getStatusType = (status: string) => {
 
 const fetchCustomers = async () => {
   try {
-    // 模拟数据，实际项目中应该从后端API获取
-    customers.value = [
-      {
-        id: 1,
-        name: '张女士',
-        phone: '13800138001',
-        email: 'zhang@example.com',
-        check_in_date: '2026-02-01',
-        check_out_date: '2026-02-28',
-        status: '在住'
-      },
-      {
-        id: 2,
-        name: '李女士',
-        phone: '13900139001',
-        email: 'li@example.com',
-        check_in_date: '2026-02-03',
-        check_out_date: '2026-03-03',
-        status: '在住'
-      },
-      {
-        id: 3,
-        name: '王女士',
-        phone: '13700137001',
-        email: 'wang@example.com',
-        check_in_date: '2026-01-15',
-        check_out_date: '2026-02-15',
-        status: '已退房'
-      }
-    ]
+    // 从后端API获取客户列表
+    const response = await axios.get('/api/customers')
+    customers.value = response.data
   } catch (error) {
     console.error('Error fetching customers:', error)
     ElMessage.error('获取客户列表失败')
@@ -192,7 +167,9 @@ const deleteCustomer = (customerId: number) => {
     type: 'warning'
   }).then(async () => {
     try {
-      // 模拟删除，实际项目中应该调用后端API
+      // 调用后端API删除客户
+      await axios.delete(`/api/customers/${customerId}`)
+      // 从本地列表中移除
       customers.value = customers.value.filter(customer => customer.id !== customerId)
       ElMessage.success('客户删除成功')
     } catch (error) {
@@ -210,21 +187,16 @@ const submitCustomer = async () => {
       try {
         if (customerForm.value.id) {
           // 编辑客户
-          const index = customers.value.findIndex(customer => customer.id === customerForm.value.id)
-          if (index !== -1) {
-            customers.value[index] = { ...customerForm.value }
-          }
+          await axios.put(`/api/customers/${customerForm.value.id}`, customerForm.value)
           ElMessage.success('客户更新成功')
         } else {
           // 新增客户
-          const newCustomer = {
-            ...customerForm.value,
-            id: customers.value.length + 1
-          }
-          customers.value.push(newCustomer)
+          await axios.post('/api/customers', customerForm.value)
           ElMessage.success('客户创建成功')
         }
         dialogVisible.value = false
+        // 重新获取客户列表
+        await fetchCustomers()
       } catch (error) {
         console.error('Error submitting customer:', error)
         ElMessage.error('保存客户失败')

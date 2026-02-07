@@ -427,6 +427,151 @@ def remove_user_role(user_id, role_id):
         db.session.rollback()
         return handle_error(e)
 
+# 员工管理API
+@api.route('/users', methods=['GET'])
+def get_users():
+    """获取所有用户（员工）"""
+    users = User.query.filter_by(deleted_at=None).all()
+    return jsonify([{
+        'id': user.id,
+        'username': user.username,
+        'email': user.email,
+        'phone': user.phone,
+        'full_name': user.full_name,
+        'department': user.department,
+        'position': user.position,
+        'is_active': user.is_active,
+        'roles': [ur.role.name for ur in user.user_roles]
+    } for user in users])
+
+@api.route('/users', methods=['POST'])
+def create_user():
+    """创建新用户（员工）"""
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    required_fields = ['username', 'password']
+    is_valid, error = validate_data(data, required_fields)
+    if not is_valid:
+        return jsonify(error), 400
+    
+    # 检查用户名是否已存在
+    existing_user = User.query.filter_by(username=data['username']).first()
+    if existing_user:
+        return jsonify({'error': 'Username already exists'}), 400
+    
+    # 创建用户
+    user = User(
+        username=data['username'],
+        email=data.get('email'),
+        phone=data.get('phone'),
+        full_name=data.get('full_name'),
+        department=data.get('department'),
+        position=data.get('position'),
+        is_active=data.get('is_active', True)
+    )
+    user.set_password(data['password'])
+    
+    try:
+        db.session.add(user)
+        db.session.commit()
+        
+        # 分配角色
+        if 'role_id' in data:
+            role = Role.query.get(data['role_id'])
+            if role:
+                user_role = UserRole(user_id=user.id, role_id=role.id)
+                db.session.add(user_role)
+                db.session.commit()
+        
+        return jsonify({
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'phone': user.phone,
+            'full_name': user.full_name,
+            'department': user.department,
+            'position': user.position,
+            'is_active': user.is_active
+        }), 201
+    except Exception as e:
+        db.session.rollback()
+        return handle_error(e)
+
+@api.route('/users/<int:user_id>', methods=['PUT'])
+def update_user(user_id):
+    """更新用户（员工）"""
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    # 更新用户信息
+    if 'email' in data:
+        user.email = data['email']
+    if 'phone' in data:
+        user.phone = data['phone']
+    if 'full_name' in data:
+        user.full_name = data['full_name']
+    if 'department' in data:
+        user.department = data['department']
+    if 'position' in data:
+        user.position = data['position']
+    if 'is_active' in data:
+        user.is_active = data['is_active']
+    if 'password' in data:
+        user.set_password(data['password'])
+    
+    try:
+        db.session.commit()
+        
+        # 更新角色
+        if 'role_id' in data:
+            # 删除旧角色
+            UserRole.query.filter_by(user_id=user_id).delete()
+            
+            # 添加新角色
+            role = Role.query.get(data['role_id'])
+            if role:
+                user_role = UserRole(user_id=user_id, role_id=role.id)
+                db.session.add(user_role)
+            
+            db.session.commit()
+        
+        return jsonify({
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'phone': user.phone,
+            'full_name': user.full_name,
+            'department': user.department,
+            'position': user.position,
+            'is_active': user.is_active
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        return handle_error(e)
+
+@api.route('/users/<int:user_id>', methods=['DELETE'])
+def delete_user(user_id):
+    """删除用户（员工）"""
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    try:
+        # 软删除
+        user.deleted_at = datetime.now()
+        db.session.commit()
+        return jsonify({'message': 'User deleted successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return handle_error(e)
+
 # 角色权限管理API
 @api.route('/roles/<int:role_id>/permissions', methods=['GET'])
 @requires_permission('role:read')
@@ -1768,13 +1913,14 @@ def get_daily_menus():
 @api.route('/customers', methods=['GET'])
 def get_customers():
     """获取所有客户"""
-    customers = Customer.query.all()
+    customers = Customer.query.filter_by(deleted_at=None).all()
     return jsonify([{
         'id': customer.id,
         'name': customer.name,
         'dietary_restrictions': customer.dietary_restrictions,
         'check_in_date': customer.check_in_date.strftime('%Y-%m-%d') if customer.check_in_date else None,
-        'check_out_date': customer.check_out_date.strftime('%Y-%m-%d') if customer.check_out_date else None
+        'check_out_date': customer.check_out_date.strftime('%Y-%m-%d') if customer.check_out_date else None,
+        'status': customer.status
     } for customer in customers])
 
 @api.route('/customers', methods=['POST'])
@@ -1844,6 +1990,52 @@ def get_dishes():
         'dietary_restrictions': dish.dietary_restrictions,
         'category': dish.category.name if dish.category else None
     } for dish in dishes])
+
+@api.route('/dishes', methods=['POST'])
+def create_dish():
+    """创建新菜品"""
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    # 验证数据
+    required_fields = ['name']
+    is_valid, error = validate_data(data, required_fields)
+    if not is_valid:
+        return jsonify(error), 400
+    
+    # 检查菜品是否已存在
+    existing_dish = Dish.query.filter_by(name=data['name']).first()
+    if existing_dish:
+        return jsonify({'error': 'Dish already exists'}), 400
+    
+    # 创建菜品
+    dish = Dish(
+        name=data['name'],
+        description=data.get('description'),
+        ingredients=data.get('ingredients'),
+        dietary_restrictions=data.get('dietary_restrictions'),
+        calories_per_serving=data.get('calories_per_serving'),
+        price=data.get('price'),
+        preparation_time=data.get('preparation_time'),
+        category_id=data.get('category_id'),
+        image_url=data.get('image_url'),
+        is_available=data.get('is_available', True)
+    )
+    
+    try:
+        db.session.add(dish)
+        db.session.commit()
+        return jsonify({
+            'id': dish.id,
+            'name': dish.name,
+            'ingredients': dish.ingredients,
+            'dietary_restrictions': dish.dietary_restrictions,
+            'category': dish.category.name if dish.category else None
+        }), 201
+    except Exception as e:
+        db.session.rollback()
+        return handle_error(e)
 
 @api.route('/init_db', methods=['POST'])
 def init_db():
@@ -2066,7 +2258,6 @@ def get_dish_detail(dish_id):
     })
 
 @api.route('/dishes/<int:dish_id>', methods=['PUT'])
-@requires_resource_permission('dish', 'update')
 def update_dish(dish_id):
     """更新菜品信息"""
     dish = Dish.query.get(dish_id)
@@ -2108,6 +2299,21 @@ def update_dish(dish_id):
             'category': dish.category.name if dish.category else None,
             'category_id': dish.category_id
         })
+    except Exception as e:
+        db.session.rollback()
+        return handle_error(e)
+
+@api.route('/dishes/<int:dish_id>', methods=['DELETE'])
+def delete_dish(dish_id):
+    """删除菜品"""
+    dish = Dish.query.get(dish_id)
+    if not dish:
+        return jsonify({'error': 'Dish not found'}), 404
+    
+    try:
+        db.session.delete(dish)
+        db.session.commit()
+        return jsonify({'message': 'Dish deleted successfully'}), 200
     except Exception as e:
         db.session.rollback()
         return handle_error(e)
@@ -2408,7 +2614,6 @@ def get_ingredient_detail(ingredient_id):
     })
 
 @api.route('/ingredients/<int:ingredient_id>', methods=['PUT'])
-@requires_resource_permission('ingredient', 'update')
 def update_ingredient(ingredient_id):
     """更新食材信息"""
     ingredient = Ingredient.query.get(ingredient_id)
@@ -2874,6 +3079,25 @@ def get_order_detail(order_id):
         'total_amount': order.total_amount,
         'items': items
     })
+
+@api.route('/orders/<int:order_id>', methods=['DELETE'])
+@requires_resource_permission('order', 'delete')
+def delete_order(order_id):
+    """删除订单"""
+    order = CustomerOrder.query.get(order_id)
+    if not order:
+        return jsonify({'error': 'Order not found'}), 404
+    
+    try:
+        # 删除订单详情
+        OrderItem.query.filter_by(order_id=order_id).delete()
+        # 删除订单
+        db.session.delete(order)
+        db.session.commit()
+        return jsonify({'message': 'Order deleted successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return handle_error(e)
 
 # 排餐表API
 @api.route('/meal_schedules', methods=['GET'])
@@ -3607,7 +3831,6 @@ def get_service_package_detail(package_id):
 
 # 服务预订API
 @api.route('/service_bookings', methods=['GET'])
-@requires_resource_permission('service', 'read')
 def get_service_bookings():
     """获取所有服务预订"""
     bookings = ServiceBooking.query.order_by(ServiceBooking.booking_date.desc()).all()
@@ -3626,7 +3849,6 @@ def get_service_bookings():
     } for booking in bookings])
 
 @api.route('/service_bookings', methods=['POST'])
-@requires_resource_permission('service', 'create')
 def create_service_booking():
     """创建新服务预订"""
     data = request.get_json()
@@ -3763,6 +3985,21 @@ def update_service_booking(booking_id):
             'price': booking.price,
             'notes': booking.notes
         })
+    except Exception as e:
+        db.session.rollback()
+        return handle_error(e)
+
+@api.route('/service_bookings/<int:booking_id>', methods=['DELETE'])
+def delete_service_booking(booking_id):
+    """删除服务预订"""
+    booking = ServiceBooking.query.get(booking_id)
+    if not booking:
+        return jsonify({'error': 'Service booking not found'}), 404
+    
+    try:
+        db.session.delete(booking)
+        db.session.commit()
+        return jsonify({'message': 'Service booking deleted successfully'}), 200
     except Exception as e:
         db.session.rollback()
         return handle_error(e)

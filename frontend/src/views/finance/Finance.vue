@@ -3,48 +3,42 @@
     <h2 class="page-title">
       <i class="fas fa-money-bill-wave"></i> 财务管理
     </h2>
-    <div class="card">
-      <div class="card-header">
-        <button class="btn btn-primary" @click="showAddForm = true">
-          <i class="fas fa-plus"></i> 添加财务记录
-        </button>
-      </div>
-      <div class="card-body">
-        <table class="table table-striped">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>交易类型</th>
-              <th>金额</th>
-              <th>交易日期</th>
-              <th>交易描述</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="finance in finances" :key="finance.id">
-              <td>{{ finance.id }}</td>
-              <td>
-                <span class="badge" :class="getTypeClass(finance.type)">
-                  {{ finance.type }}
-                </span>
-              </td>
-              <td>{{ finance.amount }} 元</td>
-              <td>{{ finance.transaction_date }}</td>
-              <td>{{ finance.description }}</td>
-              <td>
-                <button class="btn btn-sm btn-info" @click="editFinance(finance)">
-                  <i class="fas fa-edit"></i> 编辑
-                </button>
-                <button class="btn btn-sm btn-danger" @click="deleteFinance(finance.id)">
-                  <i class="fas fa-trash"></i> 删除
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <el-card shadow="hover" class="finance-card">
+      <template #header>
+        <div class="card-header">
+          <el-button type="primary" @click="showAddForm = true">
+            <i class="fas fa-plus"></i> 添加财务记录
+          </el-button>
+        </div>
+      </template>
+      <el-table :data="finances" style="width: 100%">
+        <el-table-column prop="id" label="ID" width="80" />
+        <el-table-column prop="type" label="交易类型" width="100">
+          <template #default="scope">
+            <el-tag :type="getTypeType(scope.row.type)">
+              {{ scope.row.type }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="amount" label="金额" width="100">
+          <template #default="scope">
+            {{ scope.row.amount }} 元
+          </template>
+        </el-table-column>
+        <el-table-column prop="transaction_date" label="交易日期" />
+        <el-table-column prop="description" label="交易描述" />
+        <el-table-column label="操作" width="150">
+          <template #default="scope">
+            <el-button type="primary" size="small" @click="editFinance(scope.row)">
+              编辑
+            </el-button>
+            <el-button type="danger" size="small" @click="deleteFinance(scope.row.id)">
+              删除
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
 
     <!-- 添加/编辑财务记录弹窗 -->
     <el-dialog
@@ -163,39 +157,47 @@ const saveFinance = async () => {
   }
 }
 
-const getTypeClass = (type) => {
-  return type === '收入' ? 'bg-success text-white' : 'bg-danger text-white'
+const getTypeType = (type) => {
+  return type === '收入' ? 'success' : 'danger'
 }
 </script>
 
 <style scoped>
 .finance-container {
   padding: 20px;
+  background-color: #f5f7fa;
+  min-height: 100vh;
 }
 
 .page-title {
+  font-size: 20px;
+  font-weight: bold;
   color: var(--primary-color);
   margin-bottom: 20px;
-  font-weight: bold;
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--primary-color);
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.card {
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+.page-title i {
+  font-size: 24px;
+}
+
+.finance-card {
+  margin-bottom: 24px;
   border-radius: 8px;
   overflow: hidden;
 }
 
 .card-header {
-  background-color: var(--primary-color);
-  color: white;
-  padding: 15px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-}
-
-.card-body {
-  padding: 20px;
+  padding: 12px 20px;
+  background-color: #fafafa;
+  border-bottom: 1px solid #ebeef5;
 }
 
 .form-group {
@@ -208,20 +210,38 @@ const getTypeClass = (type) => {
   display: block;
 }
 
-.btn-primary {
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 16px;
+  background-color: #fafafa;
+  border-top: 1px solid #ebeef5;
+}
+
+/* 确保Element Plus按钮与全局样式一致 */
+.el-button--primary {
   background-color: var(--primary-color);
   border-color: var(--primary-color);
 }
 
-.btn-primary:hover {
+.el-button--primary:hover {
   background-color: var(--primary-color);
+  border-color: var(--primary-color);
   opacity: 0.9;
-  border-color: var(--primary-color);
 }
 
-.badge {
-  padding: 5px 10px;
-  border-radius: 12px;
-  font-size: 0.8rem;
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .finance-container {
+    padding: 12px;
+  }
+  
+  .page-title {
+    font-size: 18px;
+  }
+  
+  .el-dialog {
+    width: 90% !important;
+  }
 }
 </style>

@@ -3,46 +3,48 @@
     <h2 class="page-title">
       <i class="fas fa-users"></i> 员工管理
     </h2>
-    <div class="card">
-      <div class="card-header">
-        <button class="btn btn-primary" @click="showAddForm = true">
-          <i class="fas fa-plus"></i> 添加员工
-        </button>
-      </div>
-      <div class="card-body">
-        <table class="table table-striped">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>员工姓名</th>
-              <th>工号</th>
-              <th>职位</th>
-              <th>联系电话</th>
-              <th>入职日期</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="employee in employees" :key="employee.id">
-              <td>{{ employee.id }}</td>
-              <td>{{ employee.name }}</td>
-              <td>{{ employee.employee_id }}</td>
-              <td>{{ employee.position }}</td>
-              <td>{{ employee.phone }}</td>
-              <td>{{ employee.hire_date }}</td>
-              <td>
-                <button class="btn btn-sm btn-info" @click="editEmployee(employee)">
-                  <i class="fas fa-edit"></i> 编辑
-                </button>
-                <button class="btn btn-sm btn-danger" @click="deleteEmployee(employee.id)">
-                  <i class="fas fa-trash"></i> 删除
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <el-card shadow="hover" class="employee-card">
+      <template #header>
+        <div class="card-header">
+          <el-button type="primary" @click="showAddForm = true">
+            <i class="fas fa-plus"></i> 添加员工
+          </el-button>
+        </div>
+      </template>
+      <el-table :data="employees" style="width: 100%">
+        <el-table-column prop="id" label="ID" width="80" />
+        <el-table-column prop="username" label="用户名" />
+        <el-table-column prop="full_name" label="姓名" />
+        <el-table-column prop="email" label="邮箱" />
+        <el-table-column prop="phone" label="联系电话" />
+        <el-table-column prop="department" label="部门" />
+        <el-table-column prop="position" label="职位" />
+        <el-table-column label="角色">
+          <template #default="scope">
+            <el-tag v-for="role in scope.row.roles" :key="role" size="small" style="margin-right: 5px;">
+              {{ role }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="状态" width="80">
+          <template #default="scope">
+            <el-tag :type="scope.row.is_active ? 'success' : 'danger'" size="small">
+              {{ scope.row.is_active ? '启用' : '禁用' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="150">
+          <template #default="scope">
+            <el-button type="primary" size="small" @click="editEmployee(scope.row)">
+              编辑
+            </el-button>
+            <el-button type="danger" size="small" @click="deleteEmployee(scope.row.id)">
+              删除
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
 
     <!-- 添加/编辑员工弹窗 -->
     <el-dialog
@@ -51,40 +53,42 @@
       width="500px"
     >
       <div class="form-group">
-        <label for="employee-name">员工姓名</label>
+        <label for="employee-username">用户名</label>
         <input 
           type="text" 
           class="form-control" 
-          id="employee-name" 
-          v-model="formData.name"
+          id="employee-username" 
+          v-model="formData.username"
+          required
+        >
+      </div>
+      <div class="form-group" v-if="!editingEmployee">
+        <label for="employee-password">密码</label>
+        <input 
+          type="password" 
+          class="form-control" 
+          id="employee-password" 
+          v-model="formData.password"
           required
         >
       </div>
       <div class="form-group">
-        <label for="employee-id">工号</label>
+        <label for="employee-full-name">姓名</label>
         <input 
           type="text" 
           class="form-control" 
-          id="employee-id" 
-          v-model="formData.employee_id"
-          required
+          id="employee-full-name" 
+          v-model="formData.full_name"
         >
       </div>
       <div class="form-group">
-        <label for="employee-position">职位</label>
-        <select 
+        <label for="employee-email">邮箱</label>
+        <input 
+          type="email" 
           class="form-control" 
-          id="employee-position" 
-          v-model="formData.position"
-          required
+          id="employee-email" 
+          v-model="formData.email"
         >
-          <option value="">请选择职位</option>
-          <option value="管理员">管理员</option>
-          <option value="护士">护士</option>
-          <option value="厨师">厨师</option>
-          <option value="护理员">护理员</option>
-          <option value="其他">其他</option>
-        </select>
       </div>
       <div class="form-group">
         <label for="employee-phone">联系电话</label>
@@ -93,18 +97,36 @@
           class="form-control" 
           id="employee-phone" 
           v-model="formData.phone"
-          required
         >
       </div>
       <div class="form-group">
-        <label for="employee-hire-date">入职日期</label>
+        <label for="employee-department">部门</label>
         <input 
-          type="date" 
+          type="text" 
           class="form-control" 
-          id="employee-hire-date" 
-          v-model="formData.hire_date"
-          required
+          id="employee-department" 
+          v-model="formData.department"
         >
+      </div>
+      <div class="form-group">
+        <label for="employee-position">职位</label>
+        <input 
+          type="text" 
+          class="form-control" 
+          id="employee-position" 
+          v-model="formData.position"
+        >
+      </div>
+      <div class="form-group">
+        <label for="employee-is-active">状态</label>
+        <select 
+          class="form-control" 
+          id="employee-is-active" 
+          v-model="formData.is_active"
+        >
+          <option :value="true">启用</option>
+          <option :value="false">禁用</option>
+        </select>
       </div>
       <template #footer>
         <span class="dialog-footer">
@@ -125,11 +147,14 @@ const editingEmployee = ref(false)
 const employees = ref([])
 const formData = ref({
   id: null,
-  name: '',
-  employee_id: '',
-  position: '',
+  username: '',
+  password: '',
+  full_name: '',
+  email: '',
   phone: '',
-  hire_date: ''
+  department: '',
+  position: '',
+  is_active: true
 })
 
 onMounted(() => {
@@ -138,7 +163,7 @@ onMounted(() => {
 
 const fetchEmployees = async () => {
   try {
-    const response = await axios.get('/api/employees')
+    const response = await axios.get('/api/users')
     employees.value = response.data
   } catch (error) {
     console.error('获取员工列表失败:', error)
@@ -153,7 +178,7 @@ const editEmployee = (employee) => {
 
 const deleteEmployee = async (id) => {
   try {
-    await axios.delete(`/api/employees/${id}`)
+    await axios.delete(`/api/users/${id}`)
     fetchEmployees()
   } catch (error) {
     console.error('删除员工失败:', error)
@@ -163,9 +188,9 @@ const deleteEmployee = async (id) => {
 const saveEmployee = async () => {
   try {
     if (editingEmployee.value) {
-      await axios.put(`/api/employees/${formData.value.id}`, formData.value)
+      await axios.put(`/api/users/${formData.value.id}`, formData.value)
     } else {
-      await axios.post('/api/employees', formData.value)
+      await axios.post('/api/users', formData.value)
     }
     showAddForm.value = false
     fetchEmployees()
@@ -178,51 +203,73 @@ const saveEmployee = async () => {
 <style scoped>
 .employee-container {
   padding: 20px;
+  background-color: #f5f7fa;
+  min-height: 100vh;
 }
 
 .page-title {
+  font-size: 20px;
+  font-weight: bold;
   color: var(--primary-color);
   margin-bottom: 20px;
-  font-weight: bold;
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--primary-color);
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.card {
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+.page-title i {
+  font-size: 24px;
+}
+
+.employee-card {
+  margin-bottom: 24px;
   border-radius: 8px;
   overflow: hidden;
 }
 
 .card-header {
-  background-color: var(--primary-color);
-  color: white;
-  padding: 15px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 12px 20px;
+  background-color: #fafafa;
+  border-bottom: 1px solid #ebeef5;
 }
 
-.card-body {
-  padding: 20px;
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 16px;
+  background-color: #fafafa;
+  border-top: 1px solid #ebeef5;
 }
 
-.form-group {
-  margin-bottom: 15px;
-}
-
-.form-group label {
-  font-weight: bold;
-  margin-bottom: 5px;
-  display: block;
-}
-
-.btn-primary {
+/* 确保Element Plus按钮与全局样式一致 */
+.el-button--primary {
   background-color: var(--primary-color);
   border-color: var(--primary-color);
 }
 
-.btn-primary:hover {
+.el-button--primary:hover {
   background-color: var(--primary-color);
+  border-color: var(--primary-color);
   opacity: 0.9;
-  border-color: var(--primary-color);
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .employee-container {
+    padding: 12px;
+  }
+  
+  .page-title {
+    font-size: 18px;
+  }
+  
+  .el-dialog {
+    width: 90% !important;
+  }
 }
 </style>

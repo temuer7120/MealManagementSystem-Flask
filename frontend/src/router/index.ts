@@ -25,6 +25,11 @@ const router = createRouter({
       component: () => import('../views/menu/Menu.vue')
     },
     {
+      path: '/menu/calendar',
+      name: 'MealCalendar',
+      component: () => import('../views/menu/MealCalendar.vue')
+    },
+    {
       path: '/dish',
       name: 'Dish',
       component: () => import('../views/dish/Dish.vue')
@@ -63,6 +68,11 @@ const router = createRouter({
       path: '/report',
       name: 'Report',
       component: () => import('../views/report/Report.vue')
+    },
+    {
+      path: '/data-entry',
+      name: 'DataEntry',
+      component: () => import('../views/system/DataEntry.vue')
     }
   ]
 })
@@ -74,10 +84,13 @@ router.beforeEach((to, _from, next) => {
   const user = userStr ? JSON.parse(userStr) : null
   const role = user ? user.role : null
   
-  // 未登录用户重定向到登录页
-  if (!token && to.path !== '/' && to.path !== '/login') {
-    next('/')
-    return
+  // 未登录用户可以访问基本管理界面
+  if (!token) {
+    const allowedRoutes = ['/', '/login', '/dashboard', '/service-booking', '/menu', '/menu/calendar', '/dish', '/ingredient', '/order', '/customer', '/employee', '/finance', '/report', '/data-entry']
+    if (!allowedRoutes.includes(to.path)) {
+      next('/')
+      return
+    }
   }
   
   // 登录页不需要权限检查
@@ -86,18 +99,22 @@ router.beforeEach((to, _from, next) => {
     return
   }
   
-  // 检查用户是否有权限访问该路由
-  if (to.name && !hasRoutePermission(role, to.name)) {
-    next('/dashboard')
-    return
-  }
-  
-  // 检查子路由权限
-  if (to.matched.length > 1) {
-    const childRoute = to.matched[to.matched.length - 1]
-    if (childRoute.name && !hasRoutePermission(role, childRoute.name)) {
-      next('/dashboard')
-      return
+  // 已登录用户检查权限
+  if (token && role) {
+    // 检查用户是否有权限访问该路由
+    if (to.name) {
+      // 对于子路由，使用父路由的权限检查
+      let routeNameToCheck = to.name as string
+      
+      // 处理餐单日历等子路由
+      if (routeNameToCheck === 'MealCalendar') {
+        routeNameToCheck = 'Menu'
+      }
+      
+      if (!hasRoutePermission(role, routeNameToCheck)) {
+        next('/dashboard')
+        return
+      }
     }
   }
   

@@ -69,6 +69,7 @@ export const applyTheme = (theme) => {
   
   // 设置CSS变量
   document.documentElement.style.setProperty('--primary-color', theme.primary);
+  document.documentElement.style.setProperty('--primary-color-rgb', hexToRgb(theme.primary));
   console.log('CSS变量设置完成:', theme.primary);
   
   // 更新导航栏背景色

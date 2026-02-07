@@ -220,30 +220,9 @@ const getRoleType = (role: string) => {
 
 const fetchUsers = async () => {
   try {
-    // 模拟数据，实际项目中应该从后端API获取
-    users.value = [
-      {
-        id: 1,
-        username: 'admin',
-        email: 'admin@example.com',
-        role: 'admin',
-        is_active: true
-      },
-      {
-        id: 2,
-        username: 'nutritionist',
-        email: 'nutritionist@example.com',
-        role: 'nutritionist',
-        is_active: true
-      },
-      {
-        id: 3,
-        username: 'chef',
-        email: 'chef@example.com',
-        role: 'chef',
-        is_active: true
-      }
-    ]
+    // 从后端API获取用户列表
+    const response = await axios.get('/api/users')
+    users.value = response.data
   } catch (error) {
     console.error('Error fetching users:', error)
     ElMessage.error('获取用户列表失败')
@@ -252,13 +231,9 @@ const fetchUsers = async () => {
 
 const fetchRoles = async () => {
   try {
-    // 模拟数据，实际项目中应该从后端API获取
-    roles.value = [
-      { id: 1, name: 'admin', description: '系统管理员' },
-      { id: 2, name: 'nutritionist', description: '营养师' },
-      { id: 3, name: 'chef', description: '厨师' },
-      { id: 4, name: 'staff', description: '普通员工' }
-    ]
+    // 从后端API获取角色列表
+    const response = await axios.get('/api/roles')
+    roles.value = response.data
   } catch (error) {
     console.error('Error fetching roles:', error)
     ElMessage.error('获取角色列表失败')
@@ -289,7 +264,9 @@ const deleteUser = (userId: number) => {
     type: 'warning'
   }).then(async () => {
     try {
-      // 模拟删除，实际项目中应该调用后端API
+      // 调用后端API删除用户
+      await axios.delete(`/api/users/${userId}`)
+      // 从本地列表中移除
       users.value = users.value.filter(user => user.id !== userId)
       ElMessage.success('用户删除成功')
     } catch (error) {
@@ -299,9 +276,19 @@ const deleteUser = (userId: number) => {
   })
 }
 
-const updateUserStatus = (user: any) => {
-  // 模拟更新状态，实际项目中应该调用后端API
-  ElMessage.success(`用户 ${user.username} 状态已更新`)
+const updateUserStatus = async (user: any) => {
+  try {
+    // 调用后端API更新用户状态
+    await axios.put(`/api/users/${user.id}`, {
+      is_active: user.is_active
+    })
+    ElMessage.success(`用户 ${user.username} 状态已更新`)
+  } catch (error) {
+    console.error('Error updating user status:', error)
+    ElMessage.error('更新用户状态失败')
+    // 恢复原来的状态
+    user.is_active = !user.is_active
+  }
 }
 
 const submitUser = async () => {
@@ -312,6 +299,8 @@ const submitUser = async () => {
       try {
         if (userForm.value.id) {
           // 编辑用户
+          await axios.put(`/api/users/${userForm.value.id}`, userForm.value)
+          // 更新本地列表
           const index = users.value.findIndex(user => user.id === userForm.value.id)
           if (index !== -1) {
             users.value[index] = { ...userForm.value }
@@ -319,10 +308,8 @@ const submitUser = async () => {
           ElMessage.success('用户更新成功')
         } else {
           // 新增用户
-          const newUser = {
-            ...userForm.value,
-            id: users.value.length + 1
-          }
+          const response = await axios.post('/api/users', userForm.value)
+          const newUser = response.data
           users.value.push(newUser)
           ElMessage.success('用户创建成功')
         }
@@ -356,7 +343,9 @@ const deleteRole = (roleId: number) => {
     type: 'warning'
   }).then(async () => {
     try {
-      // 模拟删除，实际项目中应该调用后端API
+      // 调用后端API删除角色
+      await axios.delete(`/api/roles/${roleId}`)
+      // 从本地列表中移除
       roles.value = roles.value.filter(role => role.id !== roleId)
       ElMessage.success('角色删除成功')
     } catch (error) {
@@ -374,6 +363,8 @@ const submitRole = async () => {
       try {
         if (roleForm.value.id) {
           // 编辑角色
+          await axios.put(`/api/roles/${roleForm.value.id}`, roleForm.value)
+          // 更新本地列表
           const index = roles.value.findIndex(role => role.id === roleForm.value.id)
           if (index !== -1) {
             roles.value[index] = { ...roleForm.value }
@@ -381,10 +372,8 @@ const submitRole = async () => {
           ElMessage.success('角色更新成功')
         } else {
           // 新增角色
-          const newRole = {
-            ...roleForm.value,
-            id: roles.value.length + 1
-          }
+          const response = await axios.post('/api/roles', roleForm.value)
+          const newRole = response.data
           roles.value.push(newRole)
           ElMessage.success('角色创建成功')
         }

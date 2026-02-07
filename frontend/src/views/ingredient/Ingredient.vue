@@ -3,44 +3,32 @@
     <h2 class="page-title">
       <i class="fas fa-seedling"></i> 食材管理
     </h2>
-    <div class="card">
-      <div class="card-header">
-        <button class="btn btn-primary" @click="showAddForm = true">
-          <i class="fas fa-plus"></i> 添加食材
-        </button>
-      </div>
-      <div class="card-body">
-        <table class="table table-striped">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>食材名称</th>
-              <th>食材类别</th>
-              <th>库存数量</th>
-              <th>单位</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="ingredient in ingredients" :key="ingredient.id">
-              <td>{{ ingredient.id }}</td>
-              <td>{{ ingredient.name }}</td>
-              <td>{{ ingredient.category }}</td>
-              <td>{{ ingredient.stock }}</td>
-              <td>{{ ingredient.unit }}</td>
-              <td>
-                <button class="btn btn-sm btn-info" @click="editIngredient(ingredient)">
-                  <i class="fas fa-edit"></i> 编辑
-                </button>
-                <button class="btn btn-sm btn-danger" @click="deleteIngredient(ingredient.id)">
-                  <i class="fas fa-trash"></i> 删除
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <el-card shadow="hover" class="ingredient-card">
+      <template #header>
+        <div class="card-header">
+          <el-button type="primary" @click="showAddForm = true">
+            <i class="fas fa-plus"></i> 添加食材
+          </el-button>
+        </div>
+      </template>
+      <el-table :data="ingredients" style="width: 100%">
+        <el-table-column prop="id" label="ID" width="80" />
+        <el-table-column prop="name" label="食材名称" />
+        <el-table-column prop="category" label="食材类别" />
+        <el-table-column prop="stock" label="库存数量" width="100" />
+        <el-table-column prop="unit" label="单位" width="80" />
+        <el-table-column label="操作" width="150">
+          <template #default="scope">
+            <el-button type="primary" size="small" @click="editIngredient(scope.row)">
+              编辑
+            </el-button>
+            <el-button type="danger" size="small" @click="deleteIngredient(scope.row.id)">
+              删除
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
 
     <!-- 添加/编辑食材弹窗 -->
     <el-dialog
@@ -60,6 +48,7 @@
               v-model="formData.name"
               required
               @keyup.enter="focusNext('ingredient-category')"
+              @input="autoQueryIngredientTaboo(formData.name)"
             >
           </div>
           <div class="form-group">
@@ -234,31 +223,53 @@
             >
           </div>
           <div class="form-group">
-            <label for="ingredient-nutrition">营养成分</label>
-            <textarea 
-              class="form-control" 
-              id="ingredient-nutrition" 
-              v-model="formData.nutrition_info"
-              rows="3"
-              placeholder='JSON格式，如：{"蛋白质": "10g", "碳水化合物": "20g", "脂肪": "5g"}'
-            ></textarea>
-          </div>
-          <div class="form-group">
             <label for="ingredient-features">特点</label>
             <textarea 
               class="form-control" 
               id="ingredient-features" 
               v-model="formData.features"
               rows="2"
+              placeholder="请输入食材的特点，如富含维生素、高蛋白等"
             ></textarea>
           </div>
           <div class="form-group">
-            <label for="ingredient-taboo">禁忌</label>
+            <label for="ingredient-taboo">禁忌信息</label>
             <textarea 
               class="form-control" 
               id="ingredient-taboo" 
               v-model="formData.taboo"
               rows="2"
+              placeholder="请输入食材的禁忌信息，如产后初期不宜食用等"
+            ></textarea>
+          </div>
+          <div class="form-group">
+            <label for="ingredient-suitable-for">适合人群</label>
+            <textarea 
+              class="form-control" 
+              id="ingredient-suitable-for" 
+              v-model="formData.suitable_for"
+              rows="2"
+              placeholder="请输入适合食用此食材的人群，如产后妈妈、哺乳期妈妈等"
+            ></textarea>
+          </div>
+          <div class="form-group">
+            <label for="ingredient-not-suitable-for">禁忌人群</label>
+            <textarea 
+              class="form-control" 
+              id="ingredient-not-suitable-for" 
+              v-model="formData.not_suitable_for"
+              rows="2"
+              placeholder="请输入不适合食用此食材的人群，如恶露未净者、体质虚寒者等"
+            ></textarea>
+          </div>
+          <div class="form-group">
+            <label for="ingredient-service-taboo">使用禁忌</label>
+            <textarea 
+              class="form-control" 
+              id="ingredient-service-taboo" 
+              v-model="formData.service_taboo"
+              rows="2"
+              placeholder="请输入与此食材相关的使用禁忌，如烹饪方式、食用量等注意事项"
             ></textarea>
           </div>
         </div>
@@ -315,7 +326,10 @@ const formData = ref({
   purchaser: '',
   purchase_date: '',
   features: '',
-  taboo: ''
+  taboo: '',
+  suitable_for: '',
+  not_suitable_for: '',
+  service_taboo: ''
 })
 
 onMounted(() => {
@@ -518,11 +532,6 @@ const saveIngredient = async () => {
     // 移除不需要的字段
     delete saveData.stock
     delete saveData.unit
-    delete saveData.supplier
-    delete saveData.purchaser
-    delete saveData.purchase_date
-    delete saveData.features
-    delete saveData.taboo
     
     if (editingIngredient.value) {
       await axios.put(`/api/ingredients/${saveData.id}`, saveData)
@@ -556,7 +565,10 @@ const resetForm = () => {
     purchaser: '',
     purchase_date: '',
     features: '',
-    taboo: ''
+    taboo: '',
+    suitable_for: '',
+    not_suitable_for: '',
+    service_taboo: ''
   }
   editingIngredient.value = false
   identifyResult.value = false
@@ -568,36 +580,146 @@ const focusNext = (elementId) => {
     element.focus()
   }
 }
+
+// 自动查询食材禁忌信息
+const autoQueryIngredientTaboo = async (ingredientName) => {
+  if (!ingredientName || ingredientName.length < 2) return
+  
+  try {
+    // 模拟网络查询，实际项目中应该调用后端API
+    // 这里根据食材名称关键词进行简单的模拟查询
+    const mockTabooData = {
+      '西红柿': {
+        taboo: '无特殊禁忌，产后妈妈可适量食用',
+        suitable_for: '所有产后妈妈',
+        not_suitable_for: '无特殊禁忌人群',
+        service_taboo: '建议熟食，避免生吃不洁西红柿',
+        features: '富含维生素C，酸甜可口',
+        nutrition_info: '{"蛋白质": "0.9g", "碳水化合物": "4g", "脂肪": "0.2g"}',
+        calories_per_unit: 18
+      },
+      '鸡蛋': {
+        taboo: '对鸡蛋过敏者禁用，产后一周内宜适量食用',
+        suitable_for: '产后一周以上、恶露已净的妈妈',
+        not_suitable_for: '对鸡蛋过敏者、高胆固醇患者',
+        service_taboo: '建议煮熟煮透，避免食用生鸡蛋',
+        features: '富含优质蛋白质，营养丰富',
+        nutrition_info: '{"蛋白质": "6.3g", "碳水化合物": "0.6g", "脂肪": "5.3g"}',
+        calories_per_unit: 72
+      },
+      '大米': {
+        taboo: '无特殊禁忌，产后妈妈可正常食用',
+        suitable_for: '所有产后妈妈',
+        not_suitable_for: '无特殊禁忌人群',
+        service_taboo: '建议煮软煮烂，易于消化',
+        features: '主要提供碳水化合物，是主食的主要来源',
+        nutrition_info: '{"蛋白质": "7.5g", "碳水化合物": "77g", "脂肪": "0.9g"}',
+        calories_per_unit: 346
+      },
+      '青菜': {
+        taboo: '产后一周内宜熟食，避免生冷',
+        suitable_for: '产后一周以上的妈妈',
+        not_suitable_for: '体质虚寒、脾胃虚弱者',
+        service_taboo: '建议烹饪时间不宜过长，保持营养成分',
+        features: '富含维生素和膳食纤维',
+        nutrition_info: '{"蛋白质": "2.6g", "碳水化合物": "2.8g", "脂肪": "0.3g"}',
+        calories_per_unit: 17
+      },
+      '猪肉': {
+        taboo: '产后初期宜少量食用，避免过于油腻',
+        suitable_for: '产后两周以上、体质虚弱需要进补的妈妈',
+        not_suitable_for: '肥胖体质、高血压、高血脂患者',
+        service_taboo: '建议选择瘦肉，适量食用',
+        features: '富含蛋白质和铁元素',
+        nutrition_info: '{"蛋白质": "20.3g", "碳水化合物": "1.1g", "脂肪": "10.8g"}',
+        calories_per_unit: 143
+      },
+      '小米': {
+        taboo: '无特殊禁忌，产后妈妈可适量食用',
+        suitable_for: '所有产后妈妈',
+        not_suitable_for: '无特殊禁忌人群',
+        service_taboo: '建议熬煮软烂，易于消化',
+        features: '富含维生素B族，有助于产后恢复',
+        nutrition_info: '{"蛋白质": "9g", "碳水化合物": "73g", "脂肪": "3.1g"}',
+        calories_per_unit: 358
+      }
+    }
+    
+    // 查找匹配的食材禁忌信息
+    const matchedIngredient = Object.keys(mockTabooData).find(key => 
+      key.includes(ingredientName) || ingredientName.includes(key)
+    )
+    
+    if (matchedIngredient) {
+      const tabooData = mockTabooData[matchedIngredient]
+      formData.value.taboo = tabooData.taboo
+      formData.value.suitable_for = tabooData.suitable_for
+      formData.value.not_suitable_for = tabooData.not_suitable_for
+      formData.value.service_taboo = tabooData.service_taboo
+      formData.value.features = tabooData.features
+      if (!formData.value.nutrition_info) {
+        formData.value.nutrition_info = tabooData.nutrition_info
+      }
+      if (!formData.value.calories_per_unit) {
+        formData.value.calories_per_unit = tabooData.calories_per_unit
+      }
+      
+      // 显示自动填充提示
+      identifyResult.value = true
+      setTimeout(() => {
+        identifyResult.value = false
+      }, 3000)
+    }
+  } catch (error) {
+    console.error('自动查询食材禁忌信息失败:', error)
+  }
+}
 </script>
 
 <style scoped>
 .ingredient-container {
   padding: 20px;
+  background-color: #f5f7fa;
+  min-height: 100vh;
 }
 
 .page-title {
+  font-size: 20px;
+  font-weight: bold;
   color: var(--primary-color);
   margin-bottom: 20px;
-  font-weight: bold;
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--primary-color);
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.card {
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+.page-title i {
+  font-size: 24px;
+}
+
+.ingredient-card {
+  margin-bottom: 24px;
   border-radius: 8px;
   overflow: hidden;
 }
 
 .card-header {
-  background-color: var(--primary-color);
-  color: white;
-  padding: 15px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 12px 20px;
+  background-color: #fafafa;
+  border-bottom: 1px solid #ebeef5;
 }
 
-.card-body {
-  padding: 20px;
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 16px;
+  background-color: #fafafa;
+  border-top: 1px solid #ebeef5;
 }
 
 .form-group {
@@ -920,62 +1042,16 @@ const focusNext = (elementId) => {
   box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
 }
 
-/* 按钮样式优化 */
-.btn {
-  border-radius: 4px;
-  padding: 8px 16px;
-  font-size: 14px;
-  font-weight: 500;
+/* 确保Element Plus按钮与全局样式一致 */
+.el-button--primary {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
 }
 
-.btn-secondary {
-  background-color: #6c757d;
-  border-color: #6c757d;
-}
-
-.btn-secondary:hover {
-  background-color: #5a6268;
-  border-color: #545b62;
-}
-
-.btn-info {
-  background-color: #17a2b8;
-  border-color: #17a2b8;
-}
-
-.btn-info:hover {
-  background-color: #138496;
-  border-color: #117a8b;
-}
-
-.btn-danger {
-  background-color: #dc3545;
-  border-color: #dc3545;
-}
-
-.btn-danger:hover {
-  background-color: #c82333;
-  border-color: #bd2130;
-}
-
-/* 提示信息样式 */
-.alert {
-  border-radius: 4px;
-  padding: 12px;
-  margin-bottom: 15px;
-  border: 1px solid transparent;
-}
-
-.alert-info {
-  color: #155724;
-  background-color: #d4edda;
-  border-color: #c3e6cb;
-}
-
-.alert-success {
-  color: #0c5460;
-  background-color: #d1ecf1;
-  border-color: #bee5eb;
+.el-button--primary:hover {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  opacity: 0.9;
 }
 
 /* 加载动画 */
@@ -986,5 +1062,25 @@ const focusNext = (elementId) => {
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .ingredient-container {
+    padding: 12px;
+  }
+  
+  .page-title {
+    font-size: 18px;
+  }
+  
+  .form-row {
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  .el-dialog {
+    width: 90% !important;
+  }
 }
 </style>

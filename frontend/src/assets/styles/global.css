@@ -1,0 +1,305 @@
+/* 全局样式规范 */
+
+/* 字体设置 */
+body {
+  font-family: 'Microsoft YaHei', Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #333;
+  background-color: #f5f7fa;
+}
+
+/* 页面标题样式 */
+.page-title {
+  font-size: 20px;
+  font-weight: bold;
+  color: var(--primary-color);
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--primary-color);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.page-title i {
+  font-size: 24px;
+}
+
+/* 卡片样式 */
+.card {
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
+
+.card-header {
+  background-color: var(--primary-color);
+  color: white;
+  padding: 15px 20px;
+  font-weight: bold;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-radius: 8px 8px 0 0;
+}
+
+.card-body {
+  padding: 20px;
+  background-color: white;
+}
+
+/* 按钮样式 */
+.btn {
+  border-radius: 4px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.3s ease;
+}
+
+.btn-primary {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: var(--primary-color);
+  opacity: 0.9;
+  border-color: var(--primary-color);
+}
+
+.btn-sm {
+  font-size: 12px;
+  padding: 4px 12px;
+}
+
+/* 表格样式 */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.table th {
+  background-color: #f8f9fa;
+  font-weight: bold;
+  text-align: left;
+  padding: 12px 15px;
+  border-bottom: 2px solid #dee2e6;
+}
+
+.table td {
+  padding: 12px 15px;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.table-striped tbody tr:nth-of-type(odd) {
+  background-color: #f8f9fa;
+}
+
+.table-hover tbody tr:hover {
+  background-color: #e9ecef;
+}
+
+/* 表单样式 */
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  font-weight: bold;
+  margin-bottom: 5px;
+  display: block;
+  color: #333;
+}
+
+.form-control {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 14px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.form-control:focus {
+  border-color: var(--primary-color);
+  outline: 0;
+  box-shadow: 0 0 0 0.2rem rgba(var(--primary-color-rgb), 0.25);
+}
+
+/* 标签样式 */
+.badge {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* 空状态样式 */
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: #909399;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border: 1px dashed #dcdfe6;
+}
+
+.empty-state i {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+/* 加载状态样式 */
+.loading-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--primary-color);
+}
+
+/* 错误状态样式 */
+.error-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: #f56c6c;
+  background-color: #fef0f0;
+  border-radius: 8px;
+  border: 1px solid #fbc4c4;
+}
+
+/* 成功状态样式 */
+.success-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: #67c23a;
+  background-color: #f0f9eb;
+  border-radius: 8px;
+  border: 1px solid #c2e7b0;
+}
+
+/* 警告状态样式 */
+.warning-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: #e6a23c;
+  background-color: #fdf6ec;
+  border-radius: 8px;
+  border: 1px solid #fde2a0;
+}
+
+/* 信息状态样式 */
+.info-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: #409eff;
+  background-color: #ecf5ff;
+  border-radius: 8px;
+  border: 1px solid #adc6ff;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .page-title {
+    font-size: 18px;
+  }
+  
+  .card-body {
+    padding: 15px;
+  }
+  
+  .table th,
+  .table td {
+    padding: 8px 10px;
+  }
+  
+  .btn {
+    font-size: 12px;
+    padding: 6px 12px;
+  }
+}
+
+/* Element Plus 组件样式覆盖 */
+.el-card {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.el-card__header {
+  background-color: var(--primary-color);
+  color: white;
+  font-weight: bold;
+  padding: 15px 20px;
+  border-radius: 8px 8px 0 0;
+}
+
+.el-button--primary {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+.el-button--primary:hover {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  opacity: 0.9;
+}
+
+.el-table {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.el-table th {
+  background-color: #f8f9fa;
+  font-weight: bold;
+}
+
+.el-form-item__label {
+  font-weight: bold;
+  color: #333;
+}
+
+.el-dialog__header {
+  background-color: var(--primary-color);
+  color: white;
+  border-radius: 8px 8px 0 0;
+}
+
+.el-dialog__title {
+  color: white;
+  font-weight: bold;
+}
+
+/* 动画效果 */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+.slide-enter-active,
+.slide-leave-active {
+  transition: transform 0.3s ease;
+}
+
+.slide-enter-from {
+  transform: translateX(-30px);
+  opacity: 0;
+}
+
+.slide-leave-to {
+  transform: translateX(30px);
+  opacity: 0;
+}

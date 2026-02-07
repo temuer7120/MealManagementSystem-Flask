@@ -1,6 +1,8 @@
 <template>
   <div class="dish-container">
-    <h2 class="page-title">菜品管理</h2>
+    <h2 class="page-title">
+      <i class="fas fa-drumstick-bite"></i> 菜品管理
+    </h2>
     <!-- 菜品列表 -->
     <el-card shadow="hover" class="dish-card">
       <template #header>
@@ -21,6 +23,25 @@
         <el-table-column prop="category_id" label="分类" width="120">
           <template #default="scope">
             <el-tag size="small" effect="light">{{ getCategoryName(scope.row.category_id) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="禁忌信息" min-width="150">
+          <template #default="scope">
+            <div class="taboo-info-cell">
+              <el-popover
+                placement="top"
+                width="300"
+                trigger="hover"
+                :content="getTabooDetails(scope.row)"
+                :title="'禁忌详情'"
+              >
+                <template #reference>
+                  <el-tag :type="hasTabooInfo(scope.row) ? 'warning' : 'info'" size="small">
+                    {{ hasTabooInfo(scope.row) ? '有禁忌' : '无禁忌' }}
+                  </el-tag>
+                </template>
+              </el-popover>
+            </div>
           </template>
         </el-table-column>
         <el-table-column prop="is_active" label="状态" width="100">
@@ -52,8 +73,43 @@
       custom-class="dish-dialog"
     >
       <el-form :model="dishForm" :rules="rules" ref="formRef" label-width="100px" class="dish-form">
-        <!-- 基本信息卡片 -->
+        <!-- 网络查询分解卡片 -->
         <el-card class="form-card" shadow="hover">
+          <template #header>
+            <div class="card-header">
+              <span class="card-title">网络查询分解</span>
+            </div>
+          </template>
+          
+          <div class="search-section">
+            <el-form-item class="search-form-item">
+              <el-input
+                v-model="searchQuery"
+                placeholder="请输入菜品名称进行网络查询"
+                class="search-input"
+                :prefix-icon="Search"
+              />
+              <el-button type="primary" @click="searchAndDecompose" :loading="searching" class="search-btn">
+                查询并分解
+              </el-button>
+            </el-form-item>
+            <div v-if="searching" class="loading-section">
+              <el-icon class="loading-icon"><Loading /></el-icon>
+              <span class="loading-text">正在查询... 请稍候</span>
+            </div>
+            <el-alert
+              v-if="searchResult"
+              :title="searchResult.name"
+              :type="'success'"
+              description="查询成功，已自动填充菜品信息"
+              show-icon
+              class="search-result-alert"
+            />
+          </div>
+        </el-card>
+
+        <!-- 基本信息卡片 -->
+        <el-card class="form-card" shadow="hover" style="margin-top: 10px;">
           <template #header>
             <div class="card-header">
               <span class="card-title">基本信息</span>
@@ -62,7 +118,23 @@
           
           <div class="form-row">
             <el-form-item label="菜品名称" prop="name" class="form-item">
-              <el-input v-model="dishForm.name" placeholder="请输入菜品名称" @keyup.enter="focusNext('category_id')" class="form-input" />
+              <el-input 
+                v-model="dishForm.name" 
+                placeholder="请输入菜品名称" 
+                @keyup.enter="focusNext('category_id')"
+                @input="autoQueryDishTaboo(dishForm.name)"
+                class="form-input" 
+              />
+              <el-alert
+                v-if="dishForm.taboo_info"
+                title="提示"
+                type="success"
+                :closable="false"
+                show-icon
+                class="auto-fill-tip"
+              >
+                已自动填充禁忌信息，可根据实际情况修改
+              </el-alert>
             </el-form-item>
             <el-form-item label="分类" prop="category_id" class="form-item">
               <el-select v-model="dishForm.category_id" placeholder="请选择分类" class="form-select">
@@ -110,7 +182,7 @@
         </el-card>
         
         <!-- 菜品图片卡片 -->
-        <el-card class="form-card" shadow="hover" style="margin-top: 20px;">
+        <el-card class="form-card" shadow="hover" style="margin-top: 10px;">
           <template #header>
             <div class="card-header">
               <span class="card-title">菜品图片</span>
@@ -150,7 +222,7 @@
         </el-card>
         
         <!-- 食材组合卡片 -->
-        <el-card class="form-card" shadow="hover" style="margin-top: 20px;">
+        <el-card class="form-card" shadow="hover" style="margin-top: 10px;">
           <template #header>
             <div class="card-header">
               <span class="card-title">食材组合</span>
@@ -251,39 +323,61 @@
           </div>
         </el-card>
         
-        <!-- 网络查询分解卡片 -->
-        <el-card class="form-card" shadow="hover" style="margin-top: 20px;">
+        <!-- 禁忌信息卡片 -->
+        <el-card class="form-card" shadow="hover" style="margin-top: 10px;">
           <template #header>
             <div class="card-header">
-              <span class="card-title">网络查询分解</span>
+              <span class="card-title">禁忌信息</span>
+              <el-alert
+                title="重要提示"
+                type="warning"
+                :closable="false"
+                show-icon
+                :description="'请详细填写禁忌信息，确保母婴服务安全'"
+                class="taboo-warning"
+              />
             </div>
           </template>
           
-          <div class="search-section">
-            <el-form-item class="search-form-item">
-              <el-input
-                v-model="searchQuery"
-                placeholder="请输入菜品名称进行网络查询"
-                class="search-input"
-                :prefix-icon="Search"
-              />
-              <el-button type="primary" @click="searchAndDecompose" :loading="searching" class="search-btn">
-                查询并分解
-              </el-button>
-            </el-form-item>
-            <div v-if="searching" class="loading-section">
-              <el-icon class="loading-icon"><Loading /></el-icon>
-              <span class="loading-text">正在查询... 请稍候</span>
-            </div>
-            <el-alert
-              v-if="searchResult"
-              :title="searchResult.name"
-              :type="'success'"
-              description="查询成功，已自动填充菜品信息"
-              show-icon
-              class="search-result-alert"
+          <el-form-item label="菜品禁忌" prop="taboo_info" class="form-item">
+            <el-input
+              v-model="dishForm.taboo_info"
+              type="textarea"
+              :rows="3"
+              placeholder="请输入菜品相关的禁忌信息，如食材禁忌、烹饪禁忌等"
+              class="form-textarea"
             />
-          </div>
+          </el-form-item>
+          
+          <el-form-item label="适合人群" prop="suitable_for" class="form-item">
+            <el-input
+              v-model="dishForm.suitable_for"
+              type="textarea"
+              :rows="2"
+              placeholder="请输入适合食用此菜品的人群，如产后妈妈、哺乳期妈妈等"
+              class="form-textarea"
+            />
+          </el-form-item>
+          
+          <el-form-item label="禁忌人群" prop="not_suitable_for" class="form-item">
+            <el-input
+              v-model="dishForm.not_suitable_for"
+              type="textarea"
+              :rows="2"
+              placeholder="请输入不适合食用此菜品的人群，如恶露未净者、体质虚寒者等"
+              class="form-textarea"
+            />
+          </el-form-item>
+          
+          <el-form-item label="服务禁忌" prop="service_taboo" class="form-item">
+            <el-input
+              v-model="dishForm.service_taboo"
+              type="textarea"
+              :rows="2"
+              placeholder="请输入与此菜品相关的服务禁忌，如食用时间、食用量等注意事项"
+              class="form-textarea"
+            />
+          </el-form-item>
         </el-card>
       </el-form>
       
@@ -382,7 +476,11 @@ const dishForm = ref({
   category_id: '',
   is_active: true,
   image_url: '',
-  ingredients: []
+  ingredients: [],
+  taboo_info: '',
+  suitable_for: '',
+  not_suitable_for: '',
+  service_taboo: ''
 })
 
 // 表单规则
@@ -405,12 +503,8 @@ const filteredIngredients = computed(() => {
 // 获取菜品列表
 const fetchDishes = async () => {
   try {
-    // 模拟数据，实际项目中应该从后端API获取
-    dishes.value = [
-      { id: 1, name: '清蒸鱼', nutrition_info: '{"蛋白质": "25g", "碳水化合物": "5g", "脂肪": "15g"}', price: 88, total_weight: 500, category_id: 1, is_active: true },
-      { id: 2, name: '红烧肉', nutrition_info: '{"蛋白质": "20g", "碳水化合物": "10g", "脂肪": "30g"}', price: 68, total_weight: 400, category_id: 1, is_active: true },
-      { id: 3, name: '蔬菜沙拉', nutrition_info: '{"蛋白质": "5g", "碳水化合物": "20g", "脂肪": "10g"}', price: 38, total_weight: 300, category_id: 2, is_active: true }
-    ]
+    const response = await axios.get('/api/dishes')
+    dishes.value = response.data
   } catch (error) {
     console.error('Error fetching dishes:', error)
     ElMessage.error('获取菜品列表失败')
@@ -420,13 +514,8 @@ const fetchDishes = async () => {
 // 获取分类列表
 const fetchCategories = async () => {
   try {
-    // 模拟数据，实际项目中应该从后端API获取
-    categories.value = [
-      { id: 1, name: '主菜' },
-      { id: 2, name: '配菜' },
-      { id: 3, name: '汤品' },
-      { id: 4, name: '点心' }
-    ]
+    const response = await axios.get('/api/ingredient_categories')
+    categories.value = response.data
   } catch (error) {
     console.error('Error fetching categories:', error)
     ElMessage.error('获取分类列表失败')
@@ -436,14 +525,8 @@ const fetchCategories = async () => {
 // 获取食材列表
 const fetchIngredients = async () => {
   try {
-    // 模拟数据，实际项目中应该从后端API获取
-    ingredients.value = [
-      { id: 1, name: '西红柿', unit_cost: 2.5, unit_of_measure: '个', nutrition_info: '{"蛋白质": "0.9g", "碳水化合物": "4g", "脂肪": "0.2g"}' },
-      { id: 2, name: '鸡蛋', unit_cost: 1.2, unit_of_measure: '个', nutrition_info: '{"蛋白质": "6.3g", "碳水化合物": "0.6g", "脂肪": "5.3g"}' },
-      { id: 3, name: '大米', unit_cost: 6.5, unit_of_measure: 'kg', nutrition_info: '{"蛋白质": "7.5g", "碳水化合物": "77g", "脂肪": "0.9g"}' },
-      { id: 4, name: '青菜', unit_cost: 3.8, unit_of_measure: '斤', nutrition_info: '{"蛋白质": "2.6g", "碳水化合物": "2.8g", "脂肪": "0.3g"}' },
-      { id: 5, name: '猪肉', unit_cost: 28.5, unit_of_measure: '斤', nutrition_info: '{"蛋白质": "20.3g", "碳水化合物": "1.1g", "脂肪": "10.8g"}' }
-    ]
+    const response = await axios.get('/api/ingredients')
+    ingredients.value = response.data
   } catch (error) {
     console.error('Error fetching ingredients:', error)
     ElMessage.error('获取食材列表失败')
@@ -475,7 +558,13 @@ const openDishForm = () => {
 
 // 编辑菜品
 const editDish = (dish: any) => {
-  dishForm.value = { ...dish }
+  dishForm.value = { 
+    ...dish,
+    taboo_info: dish.taboo_info || '',
+    suitable_for: dish.suitable_for || '',
+    not_suitable_for: dish.not_suitable_for || '',
+    service_taboo: dish.service_taboo || ''
+  }
   if (!dishForm.value.ingredients) {
     dishForm.value.ingredients = []
   }
@@ -491,9 +580,9 @@ const deleteDish = (dishId: number) => {
     type: 'warning'
   }).then(async () => {
     try {
-      // 模拟删除，实际项目中应该调用后端API
-      dishes.value = dishes.value.filter(dish => dish.id !== dishId)
+      await axios.delete(`/api/dishes/${dishId}`)
       ElMessage.success('菜品删除成功')
+      fetchDishes()
     } catch (error) {
       console.error('Error deleting dish:', error)
       ElMessage.error('删除菜品失败')
@@ -715,6 +804,88 @@ const focusNext = (field: string) => {
   // 这里可以实现更精确的焦点控制
 }
 
+// 自动查询菜品禁忌信息
+const autoQueryDishTaboo = async (dishName: string) => {
+  if (!dishName || dishName.length < 2) return
+  
+  try {
+    // 模拟网络查询，实际项目中应该调用后端API
+    // 这里根据菜名关键词进行简单的模拟查询
+    const mockTabooData = {
+      '清蒸鱼': {
+        taboo_info: '产后一周内不宜食用，易导致恶露不尽',
+        suitable_for: '产后两周以上、恶露已净的妈妈',
+        not_suitable_for: '恶露未净者、对海鲜过敏者',
+        service_taboo: '建议清淡烹饪，避免添加辛辣调料'
+      },
+      '红烧肉': {
+        taboo_info: '脂肪含量较高，产后初期不宜多食',
+        suitable_for: '产后一个月以上、体质虚弱需要进补的妈妈',
+        not_suitable_for: '肥胖体质、高血压、高血脂患者',
+        service_taboo: '建议适量食用，搭配蔬菜平衡营养'
+      },
+      '蔬菜沙拉': {
+        taboo_info: '产后一周内不宜食用生冷食物',
+        suitable_for: '产后两周以上、需要补充维生素的妈妈',
+        not_suitable_for: '体质虚寒、脾胃虚弱者',
+        service_taboo: '建议将蔬菜稍微加热后食用，避免生冷刺激'
+      },
+      '西红柿鸡蛋汤': {
+        taboo_info: '产后一周内宜少量食用',
+        suitable_for: '产后一周以上的妈妈',
+        not_suitable_for: '对鸡蛋过敏者',
+        service_taboo: '建议清淡烹饪，避免添加过多调料'
+      },
+      '小米粥': {
+        taboo_info: '无特殊禁忌',
+        suitable_for: '所有产后妈妈',
+        not_suitable_for: '无',
+        service_taboo: '建议熬煮软烂，易于消化'
+      }
+    }
+    
+    // 查找匹配的菜品禁忌信息
+    const matchedDish = Object.keys(mockTabooData).find(key => 
+      key.includes(dishName) || dishName.includes(key)
+    )
+    
+    if (matchedDish) {
+      const tabooData = mockTabooData[matchedDish]
+      dishForm.value.taboo_info = tabooData.taboo_info
+      dishForm.value.suitable_for = tabooData.suitable_for
+      dishForm.value.not_suitable_for = tabooData.not_suitable_for
+      dishForm.value.service_taboo = tabooData.service_taboo
+      
+      ElMessage.success(`已自动填充"${matchedDish}"的禁忌信息`)
+    }
+  } catch (error) {
+    console.error('自动查询禁忌信息失败:', error)
+  }
+}
+
+// 检查菜品是否有禁忌信息
+const hasTabooInfo = (dish: any) => {
+  return !!(dish.taboo_info || dish.not_suitable_for || dish.service_taboo)
+}
+
+// 获取菜品禁忌详情
+const getTabooDetails = (dish: any) => {
+  let details = []
+  if (dish.taboo_info) {
+    details.push(`菜品禁忌: ${dish.taboo_info}`)
+  }
+  if (dish.suitable_for) {
+    details.push(`适合人群: ${dish.suitable_for}`)
+  }
+  if (dish.not_suitable_for) {
+    details.push(`禁忌人群: ${dish.not_suitable_for}`)
+  }
+  if (dish.service_taboo) {
+    details.push(`服务禁忌: ${dish.service_taboo}`)
+  }
+  return details.length > 0 ? details.join('\n') : '无禁忌信息'
+}
+
 // 网络查询分解
 const searchAndDecompose = async () => {
   if (!searchQuery.value) {
@@ -737,7 +908,12 @@ const searchAndDecompose = async () => {
         ],
         nutrition_info: '{"蛋白质": "20g", "碳水化合物": "10g", "脂肪": "15g"}',
         total_weight: 300,
-        price: 15
+        price: 15,
+        // 添加禁忌信息
+        taboo_info: '产后一周内不宜食用，易导致恶露不尽',
+        suitable_for: '产后两周以上、恶露已净的妈妈',
+        not_suitable_for: '恶露未净者、对海鲜过敏者',
+        service_taboo: '建议清淡烹饪，避免添加辛辣调料'
       }
       
       // 自动填充结果
@@ -747,10 +923,16 @@ const searchAndDecompose = async () => {
       dishForm.value.total_weight = mockResult.total_weight
       dishForm.value.price = mockResult.price
       
+      // 自动填充禁忌信息
+      dishForm.value.taboo_info = mockResult.taboo_info
+      dishForm.value.suitable_for = mockResult.suitable_for
+      dishForm.value.not_suitable_for = mockResult.not_suitable_for
+      dishForm.value.service_taboo = mockResult.service_taboo
+      
       // 设置搜索结果
       searchResult.value = mockResult
       
-      ElMessage.success('查询分解成功，已自动填充菜品信息')
+      ElMessage.success('查询分解成功，已自动填充菜品信息和禁忌信息')
       searching.value = false
     }, 1500)
   } catch (error) {
@@ -771,21 +953,15 @@ const submitDish = async () => {
       try {
         if (dishForm.value.id) {
           // 编辑菜品
-          const index = dishes.value.findIndex(dish => dish.id === dishForm.value.id)
-          if (index !== -1) {
-            dishes.value[index] = { ...dishForm.value }
-          }
+          await axios.put(`/api/dishes/${dishForm.value.id}`, dishForm.value)
           ElMessage.success('菜品更新成功')
         } else {
           // 新增菜品
-          const newDish = {
-            ...dishForm.value,
-            id: dishes.value.length + 1
-          }
-          dishes.value.push(newDish)
+          await axios.post('/api/dishes', dishForm.value)
           ElMessage.success('菜品创建成功')
         }
         dialogVisible.value = false
+        fetchDishes()
       } catch (error) {
         console.error('Error submitting dish:', error)
         ElMessage.error('保存菜品失败')
@@ -816,12 +992,19 @@ onMounted(() => {
 
 /* 页面标题 */
 .page-title {
-  font-size: 24px;
-  font-weight: 600;
-  color: #303133;
+  font-size: 20px;
+  font-weight: bold;
+  color: var(--primary-color);
   margin-bottom: 20px;
   padding-bottom: 10px;
-  border-bottom: 2px solid #409EFF;
+  border-bottom: 2px solid var(--primary-color);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.page-title i {
+  font-size: 24px;
 }
 
 /* 卡片样式 */
@@ -832,18 +1015,20 @@ onMounted(() => {
 }
 
 .card-header {
+  background-color: var(--primary-color);
+  color: white;
+  padding: 15px 20px;
+  font-weight: bold;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 20px;
-  background-color: #fafafa;
-  border-bottom: 1px solid #ebeef5;
+  border-radius: 8px 8px 0 0;
 }
 
 .card-title {
   font-size: 16px;
-  font-weight: 500;
-  color: #303133;
+  font-weight: bold;
+  color: white;
 }
 
 /* 按钮样式 */
@@ -856,6 +1041,18 @@ onMounted(() => {
 .delete-btn {
   margin-right: 8px;
   border-radius: 4px;
+}
+
+/* 确保Element Plus按钮与全局样式一致 */
+.el-button--primary {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+.el-button--primary:hover {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  opacity: 0.9;
 }
 
 /* 对话框样式 */
@@ -888,18 +1085,37 @@ onMounted(() => {
 
 .form-card {
   border-radius: 8px;
-  margin-bottom: 20px;
+  margin-bottom: 10px;
   overflow: hidden;
+}
+
+.form-card .card-header {
+  background-color: var(--primary-color);
+  color: white;
+  padding: 8px 20px;
+  font-weight: bold;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-radius: 8px 8px 0 0;
+  min-height: 36px;
+}
+
+.form-card .card-title {
+  font-size: 14px;
+  font-weight: bold;
+  color: white;
 }
 
 .form-row {
   display: flex;
   gap: 20px;
-  margin-bottom: 16px;
+  margin-bottom: 8px;
 }
 
 .form-item {
   flex: 1;
+  margin-bottom: 8px;
 }
 
 .form-input,
